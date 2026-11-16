@@ -1,0 +1,7 @@
+# Glossar
+
+Fachsprache dieses Projekts. Begriffe von moocp (Plugin, Instanzprofil, Freigabe, Arbeitsordner, Zusatzadresse) gelten wie in dessen Glossar und stehen hier nicht noch einmal.
+
+**Kontextbereich**: Der Ordner mit den Dateien, die der KI Konventionen, Stand und Fachsprache der Lehrkraft mitgeben. _Vermeiden_: Kontextspeicher, Wissensbasis.
+
+**Wurzel**: Der eine Ordner, unter dem der ganze Kontextbereich liegt. Außerhalb liest und schreibt das Plugin nichts.

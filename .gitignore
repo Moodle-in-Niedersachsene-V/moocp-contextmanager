@@ -1,0 +1,4 @@
+/build/
+/installer/*.exe
+.dart_tool/
+CLAUDE.local.md
