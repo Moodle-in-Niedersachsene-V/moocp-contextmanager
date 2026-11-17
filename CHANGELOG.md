@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Neu: Der Kontextbereich kann auf einem WebDAV-Server liegen. Adresse und Benutzer stehen in den Einstellungen, das Passwort im Schlüsselbund des Systems. Antwortet der Server nicht, gilt dasselbe wie bei einem fehlenden Ordner: Der Schreibvorgang wartet im Ausstand.
+- Geändert: Der Ausstand ist nur für die Benutzerin lesbar. Eine Wiederholung schreibt einen Vorgang nur an den Ort, an dem er entstand; für einen anderen Ort meldet sie ihn und lässt ihn stehen.
 - Neu: Die KI kann Markdown-Dateien im Kontextbereich anlegen, ersetzen (`context_write`) und Text anhängen (`context_append`). Jede Änderung fragt die Lehrkraft in moocp je nach Freigabestufe; eine Datei, die sich seit dem Lesen geändert hat, wird nicht überschrieben, und ein Journal wird nur angehängt.
 - Neu: `context_start` beginnt jede Sitzung: Lage des Kontextbereichs, offene Vorgänge, Wurzelindex und Wurzelgewohnheiten. Mit `wiederholen` werden offene Vorgänge nachgetragen.
 - Neu: Antwortet der Kontextbereich nicht (Ordner fehlt oder ist nicht lesbar), bleibt der Schreibvorgang mit seinem Inhalt erhalten, wird nicht geschrieben und später nach neuer Freigabe nachgetragen; die KI sagt, dass er noch nicht gespeichert ist.

@@ -1,15 +1,12 @@
 // Tests am MCP-Seam für context_start: eine Antwort mit der Lage des
 // Kontextbereichs (oder der Kontextlücke mit ihrer Ursache), den offenen
 // Vorgängen im Ausstand, dem Wurzelindex und den Wurzelgewohnheiten.
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as pfad;
 import 'package:test/test.dart';
 
 import 'harness.dart';
-
-String einstellungen(String root) => jsonEncode({'art': 'lokal', 'pfad': root});
 
 /// Eine Datei mit 101 Zeilen und zwei Überschriften, wie für das Inhaltsverzeichnis.
 String langerText() =>
@@ -20,7 +17,9 @@ String langerText() =>
     ].join('\n') +
     '\n';
 
-void main() {
+void main() => fuerJedenOrt(_tests);
+
+void _tests(Ortsart art) {
   late Directory ordner;
   late String root;
   PluginProzess? plugin;
@@ -40,7 +39,8 @@ void main() {
   Future<PluginProzess> laufendesPlugin({String? einstellungenInhalt}) async {
     plugin = await PluginProzess.starten(
       ordner: ordner,
-      einstellungenInhalt: einstellungenInhalt ?? einstellungen(root),
+      ort: einstellungenInhalt == null ? art : null,
+      einstellungenInhalt: einstellungenInhalt,
     );
     await plugin!.initialisieren();
     return plugin!;
@@ -118,8 +118,8 @@ void main() {
     });
 
     test('bei Kontextlücke wird nicht versucht; der Ausstand bleibt', () async {
-      await Directory(root).delete(recursive: true);
       final p = await laufendesPlugin();
+      await p.ausfallen();
       // Ein Vorgang im Ausstand, dessen Wurzel fehlt.
       await p.werkzeug('context_write', {
         'pfad': 'plan.md',

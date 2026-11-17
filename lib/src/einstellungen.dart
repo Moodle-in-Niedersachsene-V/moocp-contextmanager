@@ -4,16 +4,50 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'fehler.dart';
-import 'speicher.dart';
 
 /// Wo der Kontextbereich liegt. Die Datei schreibt bis zum Einstellungsfenster
-/// von Hand, wer das Plugin einrichtet; das Secret eines entfernten Speichers
-/// kommt später in den Schlüsselbund, nie in diese Datei.
+/// von Hand, wer das Plugin einrichtet. Das Passwort eines WebDAV-Speichers
+/// liegt nie in dieser Datei, sondern im Schlüsselbund (ADR 0004).
 class Einstellungen {
-  const Einstellungen({required this.art, this.pfad});
+  const Einstellungen._({
+    required this.art,
+    this.pfad,
+    this.adresse,
+    this.benutzer,
+  });
 
+  /// Ein lokaler Ordner als Wurzel.
+  factory Einstellungen.lokal(String pfad) =>
+      Einstellungen._(art: 'lokal', pfad: pfad);
+
+  /// Ein WebDAV-Server als Wurzel, mit dem Benutzer; das Passwort kommt aus dem
+  /// Schlüsselbund.
+  factory Einstellungen.webdav({
+    required Uri adresse,
+    required String benutzer,
+  }) => Einstellungen._(art: 'webdav', adresse: adresse, benutzer: benutzer);
+
+  /// `lokal` oder `webdav`.
   final String art;
+
+  /// Der absolute Ordner bei `lokal`.
   final String? pfad;
+
+  /// Die Adresse der Wurzel bei `webdav`, ohne Zugangsdaten.
+  final Uri? adresse;
+
+  /// Der Benutzer bei `webdav`.
+  final String? benutzer;
+
+  /// Die Kennung des Ortes, ohne Geheimnis. Sie steht in jedem Ausstand-Vorgang,
+  /// damit eine Wiederholung nur an dem Ort schreibt, an dem der Vorgang entstand.
+  String get kennung => switch (art) {
+    'webdav' => 'webdav:$adresse',
+    _ => 'lokal:$pfad',
+  };
+
+  /// Das Konto im Schlüsselbund: der Benutzer an der Adresse.
+  String get konto => '$benutzer@$adresse';
 }
 
 /// Der Ort der Einstellungsdatei im Datenordner des Plugins (außerhalb des
@@ -64,12 +98,16 @@ Future<Einstellungen> leseEinstellungen(File datei) async {
       'The settings file cannot be read: it is not an object.',
     );
   }
-  final art = json['art'];
-  if (art != 'lokal') {
-    throw KontextFehler(
-      "The location type '$art' is not supported yet; only 'lokal' (local folder) works.",
-    );
-  }
+  return switch (json['art']) {
+    'lokal' => _lokal(json),
+    'webdav' => _webdav(json),
+    final art => throw KontextFehler(
+      "The location type '$art' is not supported; use 'lokal' (local folder) or 'webdav'.",
+    ),
+  };
+}
+
+Einstellungen _lokal(Map<Object?, Object?> json) {
   final pfad = json['pfad'];
   if (pfad is! String || pfad.isEmpty) {
     throw const KontextFehler(
@@ -82,12 +120,50 @@ Future<Einstellungen> leseEinstellungen(File datei) async {
       'The settings file must name an absolute folder path for the local location.',
     );
   }
-  return Einstellungen(art: art!.toString(), pfad: pfad);
+  return Einstellungen.lokal(pfad);
 }
 
-/// Liest die Einstellungen und öffnet den Kontextbereich, jedes Mal neu: Ändert
-/// die Lehrkraft den Ort, wirkt das beim nächsten Aufruf, ohne Neustart.
-Future<LokalerSpeicher> oeffneKontextbereich(File einstellungen) async {
-  final e = await leseEinstellungen(einstellungen);
-  return LokalerSpeicher.oeffnen(e.pfad!);
+Einstellungen _webdav(Map<Object?, Object?> json) {
+  final adresse = json['adresse'];
+  final benutzer = json['benutzer'];
+  if (adresse is! String || adresse.isEmpty) {
+    throw const KontextFehler(
+      'The settings file names no address for the WebDAV location.',
+    );
+  }
+  if (benutzer is! String || benutzer.isEmpty) {
+    throw const KontextFehler(
+      'The settings file names no user for the WebDAV location.',
+    );
+  }
+  return Einstellungen.webdav(
+    adresse: pruefeAdresse(adresse),
+    benutzer: benutzer,
+  );
+}
+
+/// Prüft die Adresse eines WebDAV-Speichers. Sie braucht https; http nur zu
+/// einer Schleife (127.0.0.1, ::1, localhost), weil das Passwort sonst offen
+/// über das Netz ginge. Zugangsdaten gehören nicht in die Adresse (A6).
+Uri pruefeAdresse(String text) {
+  final adresse = Uri.tryParse(text);
+  if (adresse == null || !adresse.hasAuthority || adresse.host.isEmpty) {
+    throw const KontextFehler(
+      'The WebDAV address is not a valid absolute address.',
+    );
+  }
+  if (adresse.userInfo.isNotEmpty) {
+    throw const KontextFehler(
+      'The WebDAV address must not contain a user or password; enter them in the settings window.',
+    );
+  }
+  final schleife =
+      adresse.host == 'localhost' ||
+      (InternetAddress.tryParse(adresse.host)?.isLoopback ?? false);
+  if (adresse.scheme == 'https' || (adresse.scheme == 'http' && schleife)) {
+    return adresse;
+  }
+  throw const KontextFehler(
+    'The WebDAV address must use https; http is allowed only for 127.0.0.1 or localhost.',
+  );
 }

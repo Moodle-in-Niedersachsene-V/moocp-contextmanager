@@ -2,7 +2,6 @@
 // unter moocp, die Werkzeuge werden über MCP aufgerufen, die falsche App
 // beantwortet Freigaben nach der Stufe der Lehrkraft (E20). Geprüft werden
 // Antworten, Freigabeanfragen und der Inhalt der Dateien danach.
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as pfad;
@@ -28,9 +27,9 @@ String fehlerMeldung(Map<String, dynamic> ergebnis) {
   return PluginProzess.text(ergebnis);
 }
 
-String einstellungen(String root) => jsonEncode({'art': 'lokal', 'pfad': root});
+void main() => fuerJedenOrt(_tests);
 
-void main() {
+void _tests(Ortsart art) {
   late Directory ordner;
   late String root;
   PluginProzess? plugin;
@@ -51,10 +50,7 @@ void main() {
     String stufe = 'mittel',
     String antwort = 'freigegeben',
   }) async {
-    plugin = await PluginProzess.starten(
-      ordner: ordner,
-      einstellungenInhalt: einstellungen(root),
-    );
+    plugin = await PluginProzess.starten(ordner: ordner, ort: art);
     await plugin!.initialisieren();
     plugin!.app.stufe = stufe;
     plugin!.app.antwort = antwort;
@@ -559,26 +555,56 @@ void main() {
       expect(p.app.freigaben, isEmpty);
     });
 
-    test('ein Pfad, der aus der Wurzel führt, wird abgewiesen, auch über eine Verknüpfung', () async {
-      final draussen = Directory(pfad.join(ordner.path, 'draussen'));
-      await draussen.create();
-      await Link(datei('link')).create(draussen.path);
-      final p = await laufendesPlugin(stufe: 'alle');
-      for (final pfadArg in ['../draussen.md', 'link/x.md']) {
+    test(
+      'ein Pfad mit .. wird abgewiesen und nichts wird geschrieben',
+      () async {
+        final p = await laufendesPlugin(stufe: 'alle');
         final ergebnis = await p.werkzeug(
           'context_write',
-          schreiben(pfadArg: pfadArg, inhalt: 'x\n', art: 'new_file'),
+          schreiben(pfadArg: '../draussen.md', inhalt: 'x\n', art: 'new_file'),
         );
-        expect(ergebnis['isError'], isTrue, reason: pfadArg);
+        expect(ergebnis['isError'], isTrue);
         expect(
           PluginProzess.text(ergebnis),
           contains('outside the context area'),
         );
-      }
-      expect(File(pfad.join(draussen.path, 'x.md')).existsSync(), isFalse);
-      expect(File(pfad.join(ordner.path, 'draussen.md')).existsSync(), isFalse);
-      expect(p.app.freigaben, isEmpty);
-    });
+        expect(
+          File(pfad.join(ordner.path, 'draussen.md')).existsSync(),
+          isFalse,
+        );
+        expect(p.app.freigaben, isEmpty);
+      },
+    );
+
+    test(
+      'ein Pfad, der aus der Wurzel führt, wird abgewiesen, auch über eine Verknüpfung',
+      () async {
+        final draussen = Directory(pfad.join(ordner.path, 'draussen'));
+        await draussen.create();
+        await Link(datei('link')).create(draussen.path);
+        final p = await laufendesPlugin(stufe: 'alle');
+        for (final pfadArg in ['../draussen.md', 'link/x.md']) {
+          final ergebnis = await p.werkzeug(
+            'context_write',
+            schreiben(pfadArg: pfadArg, inhalt: 'x\n', art: 'new_file'),
+          );
+          expect(ergebnis['isError'], isTrue, reason: pfadArg);
+          expect(
+            PluginProzess.text(ergebnis),
+            contains('outside the context area'),
+          );
+        }
+        expect(File(pfad.join(draussen.path, 'x.md')).existsSync(), isFalse);
+        expect(
+          File(pfad.join(ordner.path, 'draussen.md')).existsSync(),
+          isFalse,
+        );
+        expect(p.app.freigaben, isEmpty);
+      },
+      skip: art == Ortsart.webdav
+          ? 'nur am lokalen Ort: Verknüpfungen gibt es am WebDAV-Ort nicht'
+          : null,
+    );
   });
 
   group('Fehler bei falschen Argumenten (K8)', () {

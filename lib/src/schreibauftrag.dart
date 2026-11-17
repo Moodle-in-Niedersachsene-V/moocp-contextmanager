@@ -74,7 +74,7 @@ class Schreibauftrag {
 /// Schreibt den Auftrag am Ort und liest zurück (über den Speicher). Die Prüfung
 /// des Stands läuft im Speicher, unmittelbar vor dem Schreiben.
 Future<Geschrieben> schreibeAuftrag(
-  LokalerSpeicher speicher,
+  Kontextspeicher speicher,
   Schreibauftrag auftrag,
 ) {
   return auftrag.anhaengen

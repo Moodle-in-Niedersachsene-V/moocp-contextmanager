@@ -59,6 +59,20 @@ Inhalt für einen lokalen Ordner, der Pfad muss absolut sein:
 { "art": "lokal", "pfad": "/home/name/Kontext" }
 ```
 
+Liegt der Kontextbereich auf einem WebDAV-Server, nennt die Datei Adresse und
+Benutzer. Die Adresse beginnt mit `https://` (`http://` nur für 127.0.0.1 oder
+localhost) und enthält keine Zugangsdaten:
+
+```json
+{ "art": "webdav", "adresse": "https://cloud.example.org/remote.php/dav/files/name/Kontext/", "benutzer": "name" }
+```
+
+Das Passwort gehört nicht in diese Datei. Es liegt im Schlüsselbund des Systems
+unter dem Dienst `moocp-contextmanager` und dem Konto `Benutzer@Adresse`.
+Unter Linux braucht das Plugin dafür `secret-tool` (Paket `libsecret-tools`),
+auf dem Mac `security`. Fehlt das Werkzeug oder der Eintrag, meldet das Plugin
+das; es sucht das Passwort nie in einer Datei.
+
 Fehlt die Datei, ist der Ordner nicht da oder kann er nicht gelesen werden,
 meldet das Plugin den Grund; es arbeitet nie auf einer leeren Liste weiter.
 
@@ -88,6 +102,10 @@ Journaleinträge werden nur angehängt.
 ### Antwortet der Kontextbereich nicht
 
 Fehlt der Ordner der Wurzel oder ist er nicht lesbar, ist das eine Kontextlücke.
+Bei einem WebDAV-Server gilt dasselbe, wenn er nicht antwortet: Verbindungsfehler,
+Zeitablauf nach 20 Sekunden oder ein Serverfehler. Ein falsches Passwort oder eine
+falsche Adresse ist eine Ursache, die die Antwort nennt. Ein Schreibvorgang kommt
+dafür nicht in den Ausstand; er wird erst nach der Korrektur der Einstellungen neu gestellt.
 `context_start` nennt die Ursache, und die KI arbeitet nicht auf einer Kopie weiter.
 
 Ein Schreibvorgang, der an diesem Zustand scheitert, bleibt im Datenordner des
@@ -103,7 +121,9 @@ ein neues Schreiben geprüft und erneut freigegeben:
 - Bricht die Freigabe ab oder läuft sie ab, bleibt der Vorgang stehen.
 
 Konflikte und ungültige Aufträge (etwa ein Pfad außerhalb des Kontextbereichs)
-kommen nie in den Ausstand; sie werden sofort abgewiesen.
+kommen nie in den Ausstand; sie werden sofort abgewiesen. Jeder Vorgang merkt sich,
+an welchem Ort er entstand. Wird der Ort gewechselt, schreibt die Wiederholung
+den Vorgang nicht an den neuen Ort, sondern meldet ihn und lässt ihn stehen.
 
 ## Entwicklerhandbuch
 
@@ -116,12 +136,17 @@ kommen nie in den Ausstand; sie werden sofort abgewiesen.
 - `lib/src/start.dart`: `context_start`, die Startantwort mit Lage, Ausstand und Wurzeldateien.
 - `lib/src/ausstand.dart`: Ausstand im Datenordner (eine Datei je Vorgang) und die Wiederholung mit Stand-Prüfung und Freigabe (E2).
 - `lib/src/schreibauftrag.dart`: ein Schreibauftrag, sein Schreiben und seine Freigabe; gemeinsam für neue Schreibvorgänge und die Wiederholung.
-- `lib/src/speicher.dart`: Kontextbereich im lokalen Ordner. Lesen, Schreiben
-  und Anhängen mit Prüfung des Stands und Rücklesen. Jeder Pfad wird gegen die
-  Wurzel geprüft; Verknüpfungen werden aufgelöst.
+- `lib/src/speicher.dart`: der Kontextbereich als Schnittstelle (`Kontextspeicher`) mit
+  Lesen, Schreiben, Anhängen, Verschieben und Stand-Prüfung. Der lokale Ordner
+  (`LokalerSpeicher`) löst Verknüpfungen auf und prüft jeden Pfad gegen die Wurzel.
+- `lib/src/webdav.dart`: der WebDAV-Server als zweiter Ort (`WebDavSpeicher`): ETag
+  als Version, bedingtes Schreiben (E3), Zeitlimit und Ausfall.
+- `lib/src/pfad.dart`: die Pfadregeln für beide Orte.
+- `lib/src/ort.dart`: der Zugang zum Ort aus den Einstellungen (jedes Mal neu gelesen).
+- `lib/src/schluesselbund.dart`: das Passwort aus dem Schlüsselbund über die Werkzeuge des Systems (E4).
 - `lib/src/art.dart`: Arten der Änderung und ihre Freigabestufe (E20).
 - `lib/src/app.dart`: Freigaben über die Adresse der App für Plugins (E35).
-- `lib/src/einstellungen.dart`: Einstellungsdatei und Öffnen des Bereichs.
+- `lib/src/einstellungen.dart`: Einstellungsdatei für beide Orte und Prüfung der Adresse.
 - `lib/src/werkzeuge.dart`: die MCP-Werkzeuge.
 - `lib/src/server.dart`: MCP-Server auf `127.0.0.1` mit Schlüsselprüfung.
 - `plugin.json`: Beschreibungsdatei für moocp.
@@ -131,6 +156,14 @@ kommen nie in den Ausstand; sie werden sofort abgewiesen.
 ```
 TMPDIR=<Ordner auf der Platte> dart test -j 1 -r expanded
 ```
+
+Jede Test-Datei läuft zweimal, einmal am lokalen Ordner und einmal am WebDAV-Server
+im Testprozess (`fuerJedenOrt` in `test/harness.dart`). Der Server bedient den Ordner
+des Tests; das Passwort kommt von einem Ersatz für `secret-tool` im Ordner des Tests,
+der nur das Konto der Testanlage kennt. Der echte Schlüsselbund wird nie benutzt.
+Die Vertragstests der Speicherschicht (gleiche Fälle für beide Orte) stehen in
+`test/speicher_vertrag_test.dart`, die WebDAV-Fälle (Ausfall, Zeitlimit, Anmeldung,
+Adressen) in `test/webdav_test.dart`, der Schlüsselbund in `test/schluesselbund_test.dart`.
 
 Die Tests rufen `bin/context.dart` wie moocp es startet über Streamable HTTP
 auf und arbeiten in einem temporären Ordner. `test/harness.dart` stellt
@@ -142,7 +175,8 @@ Anfrage zählt. Die Tests für Lesen und Einstellungen stehen in
 `test/inhaltsverzeichnis_test.dart`, die für Schreiben in `test/schreiben_test.dart`,
 die für den Start in `test/start_test.dart` und für den Ausstand in
 `test/ausstand_test.dart`. Ein Ausfall des Ortes simulieren die Tests, indem sie
-den Wurzelordner entfernen.
+den Wurzelordner entfernen, am WebDAV-Ort stoppen sie den Server (`ausfallen`).
+Tests, die nur am lokalen Ordner Sinn haben (Verknüpfungen), sind dort übersprungen.
 
 ### Entwickeln
 

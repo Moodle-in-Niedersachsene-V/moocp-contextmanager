@@ -1,0 +1,110 @@
+// Tests des Schlüsselbund-Zugangs (ADR 0004). Der echte Schlüsselbund wird nie
+// benutzt: Das Werkzeug kommt als Parameter, im Test ist es ein Skript im
+// temporären Ordner oder ein Pfad, den es nicht gibt.
+import 'dart:io';
+
+import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
+
+import 'package:contextmanager/src/fehler.dart';
+import 'package:contextmanager/src/schluesselbund.dart';
+
+import 'harness.dart';
+
+void main() {
+  late Directory ordner;
+
+  setUp(() async {
+    ordner = await tempOrdner('schluesselbund');
+  });
+
+  tearDown(() async {
+    await ordner.delete(recursive: true);
+  });
+
+  /// Ein Ersatz für das Werkzeug: gibt [ausgabe] aus und endet mit [exitCode].
+  Future<String> ersatz({
+    required String ausgabe,
+    required int exitCode,
+  }) async {
+    final datei = File(p.join(ordner.path, 'werkzeug'));
+    await datei.writeAsString(
+      '#!/bin/sh\n'
+      "printf '%s' '$ausgabe'\n"
+      'exit $exitCode\n',
+    );
+    Process.runSync('chmod', ['755', datei.path]);
+    return datei.path;
+  }
+
+  test('das Passwort kommt unverändert vom Werkzeug', () async {
+    final werkzeug = await ersatz(ausgabe: testPasswort, exitCode: 0);
+
+    final geheimnis = await SystemSchluesselbund(werkzeug: werkzeug)
+        .geheimnis('nutzer@adresse');
+
+    expect(geheimnis, testPasswort);
+  });
+
+  test('fehlt das Werkzeug, ist das ein Fehler mit Grund, kein Ersatz über eine Datei', () async {
+    final fehlt = p.join(ordner.path, 'es-gibt-kein-werkzeug');
+
+    await expectLater(
+      SystemSchluesselbund(werkzeug: fehlt).geheimnis('nutzer@adresse'),
+      throwsA(
+        isA<KontextFehler>().having(
+          (f) => f.meldung,
+          'meldung',
+          contains('is not installed'),
+        ),
+      ),
+    );
+  });
+
+  test(
+    'ohne Eintrag (Werkzeug endet mit Fehler) gibt es kein Passwort',
+    () async {
+      final werkzeug = await ersatz(ausgabe: '', exitCode: 1);
+
+      await expectLater(
+        SystemSchluesselbund(werkzeug: werkzeug).geheimnis('nutzer@adresse'),
+        throwsA(
+          isA<KontextFehler>().having(
+            (f) => f.meldung,
+            'meldung',
+            allOf(contains('No password'), isNot(contains(testPasswort))),
+          ),
+        ),
+      );
+    },
+  );
+
+  test('antwortet der Schlüsselbund nicht in der Zeit (etwa gesperrt), ist das ein Fehler', () async {
+    final datei = File(p.join(ordner.path, 'langsam'));
+    await datei.writeAsString('#!/bin/sh\nsleep 5\n');
+    Process.runSync('chmod', ['755', datei.path]);
+
+    await expectLater(
+      SystemSchluesselbund(
+        werkzeug: datei.path,
+        zeitlimit: const Duration(milliseconds: 300),
+      ).geheimnis('nutzer@adresse'),
+      throwsA(
+        isA<KontextFehler>().having(
+          (f) => f.meldung,
+          'meldung',
+          contains('did not answer in time'),
+        ),
+      ),
+    );
+  });
+
+  test('ein leerer Eintrag zählt als fehlend', () async {
+    final werkzeug = await ersatz(ausgabe: '', exitCode: 0);
+
+    await expectLater(
+      SystemSchluesselbund(werkzeug: werkzeug).geheimnis('nutzer@adresse'),
+      throwsA(isA<KontextFehler>()),
+    );
+  });
+}

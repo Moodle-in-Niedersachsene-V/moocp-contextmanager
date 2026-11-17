@@ -5,9 +5,9 @@ import 'package:path/path.dart' as p;
 
 import 'app.dart';
 import 'ausstand.dart';
-import 'einstellungen.dart';
+import 'ort.dart';
 import 'schluessel.dart';
-import 'speicher.dart';
+import 'schluesselbund.dart';
 import 'werkzeuge.dart';
 
 /// Der MCP-Server des Plugins auf 127.0.0.1 nach den Regeln von moocp (E35):
@@ -17,17 +17,18 @@ StreamableMcpServer kontextServer({
   required int port,
   required String schluessel,
   required File einstellungen,
+  Schluesselbund? schluesselbund,
 }) {
   // Der Ausstand liegt neben der Einstellungsdatei, im Datenordner des Plugins.
   final ausstand = Ausstand(
     Directory(p.join(einstellungen.parent.path, 'ausstand')),
   );
+  final zugang = Ortszugang(
+    einstellungen: einstellungen,
+    schluesselbund: schluesselbund ?? SystemSchluesselbund(),
+  );
   return StreamableMcpServer(
-    serverFactory: (_) => _mcpServer(
-      () => oeffneKontextbereich(einstellungen),
-      schluessel,
-      ausstand,
-    ),
+    serverFactory: (_) => _mcpServer(zugang, schluessel, ausstand),
     host: '127.0.0.1',
     port: port,
     path: '/mcp',
@@ -40,11 +41,7 @@ StreamableMcpServer kontextServer({
   );
 }
 
-McpServer _mcpServer(
-  Future<LokalerSpeicher> Function() oeffnen,
-  String schluessel,
-  Ausstand ausstand,
-) {
+McpServer _mcpServer(Ortszugang zugang, String schluessel, Ausstand ausstand) {
   final server = McpServer(
     const Implementation(name: 'context', version: '0.1.0'),
   );
@@ -52,7 +49,7 @@ McpServer _mcpServer(
     adresse: () => _adresseDerApp(server),
     schluessel: schluessel,
   );
-  registriereWerkzeuge(server, oeffnen, app, ausstand);
+  registriereWerkzeuge(server, zugang, app, ausstand);
   return server;
 }
 

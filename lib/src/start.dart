@@ -2,6 +2,7 @@ import 'ausstand.dart';
 import 'app.dart';
 import 'fehler.dart';
 import 'inhaltsverzeichnis.dart';
+import 'ort.dart';
 import 'speicher.dart';
 
 /// Die Dateien der Wurzel, die jede Sitzung zu Beginn liest (und nur sie).
@@ -13,7 +14,7 @@ const startDateien = ['index.md', 'habits.md'];
 /// Vorgänge im Ausstand vorher wiederholt (E2). Die Antwort wirft nicht:
 /// Ein Fehler in einem Teil steht als Zeile darin.
 Future<String> leseStart({
-  required Future<LokalerSpeicher> Function() oeffnen,
+  required Ortszugang zugang,
   required Ausstand ausstand,
   required AppAnschluss app,
   required String? aufruf,
@@ -21,9 +22,9 @@ Future<String> leseStart({
 }) async {
   final zeilen = <String>[];
 
-  LokalerSpeicher? speicher;
+  Kontextspeicher? speicher;
   try {
-    speicher = await oeffnen();
+    speicher = await zugang.oeffnen();
     zeilen.add('location: answers');
   } on KontextFehler catch (f) {
     zeilen.add('location: context gap (Kontextlücke), cause: ${f.meldung}');
@@ -42,7 +43,7 @@ Future<String> leseStart({
       } else {
         final ergebnisse = await wiederholeAusstand(
           ausstand: ausstand,
-          oeffnen: oeffnen,
+          zugang: zugang,
           app: app,
           aufruf: aufruf,
           vorgaenge: offen,
@@ -85,7 +86,7 @@ String _ausstandZeile(List<Ausstehend> offen) {
 
 /// Liest eine Datei der Wurzel für den Start: fehlt sie, steht das da; ohne
 /// Kontextbereich wird nichts gelesen. Lange Dateien kommen als Inhaltsverzeichnis.
-Future<String> _leseDatei(LokalerSpeicher? speicher, String name) async {
+Future<String> _leseDatei(Kontextspeicher? speicher, String name) async {
   if (speicher == null) return 'not read: context gap.';
   try {
     final wurzel = await speicher.liste('');

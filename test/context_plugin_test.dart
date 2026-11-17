@@ -12,8 +12,6 @@ import 'harness.dart';
 const versionHallo =
     '622cb3371c1a08096eaac564fb59acccda1fcdbe13a9dd10b486e6463c8c2525';
 
-String einstellungen(String root) => jsonEncode({'art': 'lokal', 'pfad': root});
-
 bool _lesbar(File datei) {
   try {
     datei.readAsStringSync();
@@ -23,7 +21,9 @@ bool _lesbar(File datei) {
   }
 }
 
-void main() {
+void main() => fuerJedenOrt(_tests);
+
+void _tests(Ortsart art) {
   late Directory ordner;
   late String root;
   PluginProzess? plugin;
@@ -43,7 +43,8 @@ void main() {
   Future<PluginProzess> laufendesPlugin({String? einstellungenInhalt}) async {
     plugin = await PluginProzess.starten(
       ordner: ordner,
-      einstellungenInhalt: einstellungenInhalt ?? einstellungen(root),
+      ort: einstellungenInhalt == null ? art : null,
+      einstellungenInhalt: einstellungenInhalt,
     );
     await plugin!.initialisieren();
     return plugin!;
@@ -101,7 +102,7 @@ void main() {
     test('ohne Port beendet sich das Programm mit Exitcode 2', () async {
       final kurz = await PluginProzess.starten(
         ordner: ordner,
-        einstellungenInhalt: einstellungen(root),
+        ort: art,
         mitPort: false,
       );
       expect(await kurz.prozess.exitCode, 2);
@@ -113,7 +114,7 @@ void main() {
       () async {
         final kurz = await PluginProzess.starten(
           ordner: ordner,
-          einstellungenInhalt: einstellungen(root),
+          ort: art,
           schluessel: null,
         );
         expect(await kurz.prozess.exitCode, 2);
@@ -132,7 +133,7 @@ void main() {
       () async {
         plugin = await PluginProzess.starten(
           ordner: ordner,
-          einstellungenInhalt: einstellungen(root),
+          ort: art,
           mitEntwicklung: true,
         );
         final p = plugin!;
@@ -294,6 +295,9 @@ void main() {
         expect(liste['isError'], isTrue);
         expect(PluginProzess.text(liste), contains('outside the context area'));
       },
+      skip: art == Ortsart.webdav
+          ? 'nur am lokalen Ort: Verknüpfungen gibt es am WebDAV-Ort nicht'
+          : null,
     );
 
     test(
@@ -309,6 +313,9 @@ void main() {
         expect(ergebnis['isError'], isNot(true));
         expect(PluginProzess.text(ergebnis), contains('hallo'));
       },
+      skip: art == Ortsart.webdav
+          ? 'nur am lokalen Ort: Verknüpfungen gibt es am WebDAV-Ort nicht'
+          : null,
     );
 
     test('die App wird für Dateizugriffe nicht angefragt', () async {
@@ -339,21 +346,30 @@ void main() {
     });
 
     test(
-      'ein nicht unterstützter Ort in den Einstellungen wird genannt',
+      'ein WebDAV-Ort ohne Adresse in den Einstellungen wird genannt',
       () async {
         final p = await laufendesPlugin(
-          einstellungenInhalt: jsonEncode({'art': 'webdav'}),
+          einstellungenInhalt: jsonEncode({'art': 'webdav', 'benutzer': 'x'}),
         );
         final ergebnis = await p.werkzeug('context_list', {'pfad': ''});
         expect(ergebnis['isError'], isTrue);
-        expect(PluginProzess.text(ergebnis), contains('webdav'));
+        expect(PluginProzess.text(ergebnis), contains('no address'));
       },
     );
+
+    test('ein unbekannter Ortstyp in den Einstellungen wird genannt', () async {
+      final p = await laufendesPlugin(
+        einstellungenInhalt: jsonEncode({'art': 'ftp'}),
+      );
+      final ergebnis = await p.werkzeug('context_list', {'pfad': ''});
+      expect(ergebnis['isError'], isTrue);
+      expect(PluginProzess.text(ergebnis), contains("'ftp'"));
+    });
 
     test('eine nicht lesbare Einstellungsdatei hat einen eigenen Fehler, nicht den für ungültiges JSON', () async {
       final p = await laufendesPlugin();
       final datei = p.einstellungen;
-      await datei.writeAsString(einstellungen(root));
+      await datei.writeAsString(jsonEncode({'art': 'lokal', 'pfad': root}));
       final chmod = Process.runSync('chmod', ['000', datei.path]);
       expect(chmod.exitCode, 0);
       if (datei.existsSync() && _lesbar(datei)) {
@@ -393,16 +409,25 @@ void main() {
       },
     );
 
-    test('eine fehlende Wurzel wird als fehlender Ordner benannt', () async {
-      final plug = await laufendesPlugin(
-        einstellungenInhalt: einstellungen(pfad.join(ordner.path, 'weg')),
-      );
-      final ergebnis = await plug.werkzeug('context_list', {'pfad': ''});
-      expect(ergebnis['isError'], isTrue);
-      expect(
-        PluginProzess.text(ergebnis),
-        contains('root folder does not exist'),
-      );
-    });
+    test(
+      'eine fehlende Wurzel wird als fehlender Ordner benannt',
+      () async {
+        final plug = await laufendesPlugin(
+          einstellungenInhalt: jsonEncode({
+            'art': 'lokal',
+            'pfad': pfad.join(ordner.path, 'weg'),
+          }),
+        );
+        final ergebnis = await plug.werkzeug('context_list', {'pfad': ''});
+        expect(ergebnis['isError'], isTrue);
+        expect(
+          PluginProzess.text(ergebnis),
+          contains('root folder does not exist'),
+        );
+      },
+      skip: art == Ortsart.webdav
+          ? 'nur am lokalen Ort: der Fehlerfall des WebDAV-Ortes steht in test/webdav_test.dart'
+          : null,
+    );
   });
 }

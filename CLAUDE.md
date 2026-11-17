@@ -36,7 +36,10 @@ Git: Entwickelt wird auf GitHub (`Moodle-in-Niedersachsene-V/moocp-contextmanage
 
 - [E2 Ausstand](docs/adr/0002-ausstand-bei-nicht-antwortendem-ort.md): Ein gültiger Schreibauftrag, dessen Wurzel nicht antwortet, wird im Datenordner des Plugins gehalten, nie in der Wurzel; er wird erst auf Anfrage (`context_start` mit `wiederholen`) nach erneutem Stand-Check und erneuter Freigabe geschrieben. Konflikte und Abweisungen kommen nie in den Ausstand. `context_start` antwortet auch ohne Ort, mit Kontextlücke und Ursache.
 
-Neue Entscheidungen bekommen die nächste freie Nummer (`0003-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
+- [E3 WebDAV: Version und Schreiben](docs/adr/0003-webdav-version-und-bedingtes-schreiben.md): Die Version auf WebDAV ist das starke ETag ohne Anführungszeichen, geschrieben wird nur mit `If-Match` oder `If-None-Match: *` (der Server lehnt Konflikte ab); ohne starkes ETag wird nichts gelesen oder geschrieben; Ordner per `MKCOL`, Verschieben per `MOVE` ohne Überschreiben; nur Zeitablauf, Verbindungsfehler und 5xx sind „Ort antwortet nicht“ (Ausstand), Anmeldung, Weiterleitung, fehlende Wurzel und Zertifikat nicht.
+- [E4 Schlüsselbund und Verbindung](docs/adr/0004-schluesselbund-und-verbindung.md): Das Passwort kommt nur aus dem Schlüsselbund über `secret-tool` bzw. `security`, nie aus einer Datei; fehlt es, ist das ein Fehler, kein Ersatz; die Adresse braucht `https` (`http` nur zu 127.0.0.1, ::1, localhost), ohne Zugangsdaten; Weiterleitungen werden nicht gefolgt.
+
+Neue Entscheidungen bekommen die nächste freie Nummer (`0005-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
 
 ## Arbeitsregeln für die KI
 

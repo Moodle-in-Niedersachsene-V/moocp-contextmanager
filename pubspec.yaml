@@ -12,5 +12,6 @@ dependencies:
   crypto: ^3.0.8
   mcp_dart: ^2.4.4
   path: ^1.9.1
+  xml: ^7.1.0
 dev_dependencies:
   test: ^1.33.0

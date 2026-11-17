@@ -6,7 +6,9 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md).
 
 **Was in den Ausstand kommt.** Ein gültiger Schreibauftrag (`context_write`, `context_append`), dessen Ort nicht antwortet: Die Wurzel fehlt oder ist nicht lesbar. Konflikte, Abweisungen (Pfad, Art, Zusammenfassung, Journal) und Fehler der Einstellungen kommen nie in den Ausstand; sie werden wie bisher gemeldet.
 
-**Wo.** Im Datenordner des Plugins, im Ordner `ausstand/` neben der Einstellungsdatei. Je Vorgang eine JSON-Datei mit Kennung, Zeitpunkt (UTC), Ziel, Art, Zusammenfassung, Inhalt, erwarteter Version und der Angabe, ob angehängt wird. Geschrieben wird über eine temporäre Datei und ein Umbenennen. Der Ausstand liegt nie in der Wurzel: Kein Werkzeug liest ihn als Kontext.
+**Wo.** Im Datenordner des Plugins, im Ordner `ausstand/` neben der Einstellungsdatei. Je Vorgang eine JSON-Datei mit Kennung, Zeitpunkt (UTC), Ziel, Art, Zusammenfassung, Inhalt, erwarteter Version und der Angabe, ob angehängt wird. Geschrieben wird über eine temporäre Datei und ein Umbenennen. Der Ausstand liegt nie in der Wurzel: Kein Werkzeug liest ihn als Kontext. Ordner und Dateien sind nur für die Benutzerin lesbar (POSIX: 0700 und 0600), damit die Vorgänge nicht über das Konto anderer Nutzer sichtbar werden.
+
+**Ort.** Jeder Vorgang trägt die Kennung seines Ortes: der Wurzelordner oder die WebDAV-Adresse, nie ein Passwort. Die Wiederholung schreibt einen Vorgang nur an den Ort, an dem er entstand. Gehört er zu einem anderen Ort oder zu keinem erfassten, bleibt er stehen und wird gemeldet.
 
 **Freigabe.** Ist der Ort nicht erreichbar, wird nichts geschrieben und daher nicht gefragt. Die Freigabe kommt bei der Wiederholung, mit der Stufe der Art wie bei jedem Schreiben. Verschwindet der Ort erst nach der Freigabe, aber vor dem Schreiben, wird der Vorgang zurückgestellt und bei der Wiederholung erneut gefragt.
 

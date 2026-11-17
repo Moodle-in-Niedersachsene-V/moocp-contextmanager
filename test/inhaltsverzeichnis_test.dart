@@ -10,8 +10,6 @@ import 'package:test/test.dart';
 
 import 'harness.dart';
 
-String einstellungen(String root) => jsonEncode({'art': 'lokal', 'pfad': root});
-
 /// Eine Datei mit den angegebenen Zeilen, wie sie auf der Platte liegt.
 String datei(List<String> zeilen) => '${zeilen.join('\n')}\n';
 
@@ -33,7 +31,9 @@ List<String> langeDatei() => [
 
 String sha256Von(String text) => sha256.convert(utf8.encode(text)).toString();
 
-void main() {
+void main() => fuerJedenOrt(_tests);
+
+void _tests(Ortsart art) {
   late Directory ordner;
   late String root;
   PluginProzess? plugin;
@@ -51,10 +51,7 @@ void main() {
   });
 
   Future<PluginProzess> laufendesPlugin() async {
-    plugin = await PluginProzess.starten(
-      ordner: ordner,
-      einstellungenInhalt: einstellungen(root),
-    );
+    plugin = await PluginProzess.starten(ordner: ordner, ort: art);
     await plugin!.initialisieren();
     return plugin!;
   }
@@ -220,21 +217,18 @@ void main() {
       },
     );
 
-    test(
-      'ein Abschnitt darf mit seiner Markierung angefordert werden („## Woche 2“)',
-      () async {
-        await schreibe('plan.md', datei(langeDatei()));
-        final p = await laufendesPlugin();
-        final ergebnis = await p.werkzeug('context_read', {
-          'pfad': 'plan.md',
-          'abschnitt': '## Woche 2: Vertiefung',
-        });
-        expect(ergebnis['isError'], isNot(true));
-        final text = PluginProzess.text(ergebnis);
-        expect(text, contains('section: ## Woche 2: Vertiefung'));
-        expect(text, contains('lines: 21-101'));
-      },
-    );
+    test('ein Abschnitt darf mit seiner Markierung angefordert werden („## Woche 2“)', () async {
+      await schreibe('plan.md', datei(langeDatei()));
+      final p = await laufendesPlugin();
+      final ergebnis = await p.werkzeug('context_read', {
+        'pfad': 'plan.md',
+        'abschnitt': '## Woche 2: Vertiefung',
+      });
+      expect(ergebnis['isError'], isNot(true));
+      final text = PluginProzess.text(ergebnis);
+      expect(text, contains('section: ## Woche 2: Vertiefung'));
+      expect(text, contains('lines: 21-101'));
+    });
 
     test(
       'eine mehrdeutige Überschrift wird abgewiesen und nennt die Zeilen',

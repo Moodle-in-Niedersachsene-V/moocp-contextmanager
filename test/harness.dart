@@ -3,14 +3,38 @@
 // Adresse der App (ein Server, der nur mitzählt) und spricht JSON-RPC über
 // Streamable HTTP. Jeder Test bekommt einen eigenen Ordner unter dem
 // temporären Verzeichnis (TMPDIR, auf der Platte, nicht in /tmp).
+//
+// Jede Test-Datei läuft zweimal, einmal je Ort (lokal, WebDAV; siehe
+// [fuerJedenOrt]). Der WebDAV-Ort ist ein Server im Testprozess, der den Ordner
+// des Tests bedient; das Passwort kommt von einem Ersatz für `secret-tool`, der
+// nur das Konto der Testanlage kennt. Der echte Schlüsselbund wird nie benutzt.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
+
+import 'webdav_server.dart';
 
 /// Der Schlüssel, den das Testgerüst dem Plugin mitgibt.
 const testSchluessel = 'testschluessel-0123456789';
+
+/// Benutzer und Passwort des WebDAV-Ortes der Testanlage (nur für Tests).
+const testBenutzer = 'testnutzer';
+const testPasswort = 'testgeheimnis-0123456789';
+
+/// Die Orte, an denen jede Test-Datei läuft.
+enum Ortsart { lokal, webdav }
+
+/// Führt die Tests je Ort aus: einmal mit einem lokalen Ordner, einmal mit
+/// einem WebDAV-Server im Test. Die Tests selbst unterscheiden den Ort nur,
+/// wo der Ort eine Rolle spielt (etwa beim Ausfall).
+void fuerJedenOrt(void Function(Ortsart art) tests) {
+  for (final art in Ortsart.values) {
+    group('Ort ${art.name}', () => tests(art));
+  }
+}
 
 /// Das Token eines Aufrufs, den das Testgerüst an die Werkzeuge schickt.
 const testAufruf = 'aufruf-testtoken';
@@ -48,6 +72,8 @@ class PluginProzess {
     this.einstellungen,
     this.appServer,
     this.app,
+    this.ort,
+    this.webdav,
   );
 
   final Process prozess;
@@ -55,6 +81,15 @@ class PluginProzess {
   final Directory ordner;
   final File einstellungen;
   final HttpServer appServer;
+
+  /// Der Ort, für den die Einstellungen eingerichtet wurden (null: keiner).
+  final Ortsart? ort;
+
+  /// Der WebDAV-Server des Tests, nur am Ort webdav.
+  final WebDavTestServer? webdav;
+
+  /// Der Ordner des Kontextbereichs auf der Platte (am Ort webdav bedient ihn der Server).
+  String get root => p.join(ordner.path, 'kontext');
 
   /// Die falsche App: Anfragen und Freigaben, siehe [FakeApp].
   final FakeApp app;
@@ -65,11 +100,16 @@ class PluginProzess {
   String? _sitzung;
   int _nummer = 0;
 
-  /// Startet das Plugin. [einstellungenInhalt] schreibt die Einstellungsdatei
-  /// (null: es gibt keine). [mitEntwicklung] setzt `--entwicklung`.
+  /// Startet das Plugin. [ort] richtet die Einstellungen für diesen Ort ein
+  /// (und startet am Ort webdav den Server samt Schlüsselbund-Ersatz);
+  /// [einstellungenInhalt] schreibt die Datei verbatim und hat Vorrang. Ohne
+  /// beides gibt es keine Einstellungsdatei. [webdavPasswort] null: der
+  /// Schlüsselbund hat keinen Eintrag. [mitEntwicklung] setzt `--entwicklung`.
   static Future<PluginProzess> starten({
     required Directory ordner,
+    Ortsart? ort,
     String? einstellungenInhalt,
+    String? webdavPasswort = testPasswort,
     String? schluessel = testSchluessel,
     bool mitPort = true,
     bool mitEntwicklung = false,
@@ -102,9 +142,50 @@ class PluginProzess {
       await _antworte(anfrage, HttpStatus.notFound, {'fehler': 'Testserver'});
     });
 
+    final root = p.join(ordner.path, 'kontext');
+    WebDavTestServer? webdav;
+    var pfadMitSchluesselbund = Platform.environment['PATH'] ?? '';
+    if (ort == Ortsart.webdav) {
+      webdav = WebDavTestServer(
+        ordner: Directory(root),
+        benutzer: testBenutzer,
+        passwort: testPasswort,
+      );
+      await webdav.starten();
+      // Ein Ersatz für secret-tool: Er kennt nur das Konto dieser Testanlage und
+      // gibt sonst nichts aus. Das Plugin ruft ihn über den Suchpfad auf.
+      final werkzeuge = Directory(p.join(ordner.path, 'schluesselbund'))
+        ..createSync();
+      final konto = '$testBenutzer@${webdav.adresse}';
+      final skript = File(p.join(werkzeuge.path, 'secret-tool'));
+      await skript.writeAsString(
+        '#!/bin/sh\n'
+        '# Test-Ersatz für secret-tool: nur das Konto der Testanlage hat ein Passwort.\n'
+        'case "\$*" in\n'
+        '  *"account $konto"*)\n'
+        '${webdavPasswort == null ? '    exit 1\n' : "    printf '%s' '$webdavPasswort'\n    exit 0\n"}'
+        '    ;;\n'
+        'esac\n'
+        'exit 1\n',
+      );
+      Process.runSync('chmod', ['755', skript.path]);
+      pfadMitSchluesselbund = '${werkzeuge.path}:$pfadMitSchluesselbund';
+    }
+
     final einstellungen = File(p.join(ordner.path, 'einstellungen.json'));
-    if (einstellungenInhalt != null) {
-      await einstellungen.writeAsString(einstellungenInhalt);
+    final inhalt =
+        einstellungenInhalt ??
+        switch (ort) {
+          null => null,
+          Ortsart.lokal => jsonEncode({'art': 'lokal', 'pfad': root}),
+          Ortsart.webdav => jsonEncode({
+            'art': 'webdav',
+            'adresse': webdav!.adresse.toString(),
+            'benutzer': testBenutzer,
+          }),
+        };
+    if (inhalt != null) {
+      await einstellungen.writeAsString(inhalt);
     }
 
     final args = [
@@ -119,6 +200,7 @@ class PluginProzess {
       args,
       environment: {
         if (schluessel != null) 'MOOCP_PLUGIN_SCHLUESSEL': schluessel,
+        'PATH': pfadMitSchluesselbund,
       },
       includeParentEnvironment: true,
     );
@@ -133,7 +215,27 @@ class PluginProzess {
       einstellungen,
       appServer,
       app,
+      ort,
+      webdav,
     );
+  }
+
+  /// Der Ort antwortet nicht: lokal fehlt der Wurzelordner, bei WebDAV ist der
+  /// Server aus. Nach [wiederherstellen] ist er wieder da, unter derselben Adresse.
+  Future<void> ausfallen() async {
+    if (webdav != null) {
+      await webdav!.anhalten();
+    } else {
+      await Directory(root).delete(recursive: true);
+    }
+  }
+
+  Future<void> wiederherstellen() async {
+    if (webdav != null) {
+      await webdav!.starten();
+    } else {
+      await Directory(root).create();
+    }
   }
 
   Uri get adresse => Uri.parse('http://127.0.0.1:$port/mcp');
@@ -260,6 +362,7 @@ class PluginProzess {
     prozess.kill();
     await prozess.exitCode;
     await appServer.close(force: true);
+    await webdav?.beenden();
   }
 
   static Future<int> _freierPort() async {

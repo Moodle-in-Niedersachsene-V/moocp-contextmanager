@@ -14,9 +14,9 @@ import 'harness.dart';
 const versionHallo =
     '622cb3371c1a08096eaac564fb59acccda1fcdbe13a9dd10b486e6463c8c2525';
 
-String einstellungen(String root) => jsonEncode({'art': 'lokal', 'pfad': root});
+void main() => fuerJedenOrt(_tests);
 
-void main() {
+void _tests(Ortsart art) {
   late Directory ordner;
   late String root;
   late String ausstandOrdner;
@@ -39,10 +39,7 @@ void main() {
     String stufe = 'mittel',
     String antwort = 'freigegeben',
   }) async {
-    plugin = await PluginProzess.starten(
-      ordner: ordner,
-      einstellungenInhalt: einstellungen(root),
-    );
+    plugin = await PluginProzess.starten(ordner: ordner, ort: art);
     await plugin!.initialisieren();
     plugin!.app.stufe = stufe;
     plugin!.app.antwort = antwort;
@@ -68,9 +65,9 @@ void main() {
           .cast<String, dynamic>();
 
   /// Der Ort antwortet nicht: der Wurzelordner fehlt.
-  Future<void> ortAusfallen() => Directory(root).delete(recursive: true);
+  Future<void> ortAusfallen() => plugin!.ausfallen();
 
-  Future<void> ortWiederherstellen() => Directory(root).create();
+  Future<void> ortWiederherstellen() => plugin!.wiederherstellen();
 
   Map<String, Object?> schreiben({
     required String pfadArg,
@@ -88,8 +85,8 @@ void main() {
 
   group('Ausfall des Ortes: der Auftrag wird zurückgestellt', () {
     test('ein Schreiben bei fehlender Wurzel ist nicht gespeichert, steht im Ausstand und fragt nicht', () async {
-      await ortAusfallen();
       final p = await laufendesPlugin();
+      await ortAusfallen();
       final ergebnis = await p.werkzeug(
         'context_write',
         schreiben(pfadArg: 'plan.md', inhalt: 'hallo\n', art: 'plan_change'),
@@ -97,7 +94,10 @@ void main() {
       expect(ergebnis['isError'], isNot(true));
       final text = PluginProzess.text(ergebnis);
       expect(text, startsWith('not saved yet'));
-      expect(text, contains('does not exist'));
+      expect(
+        text,
+        contains(art == Ortsart.lokal ? 'does not exist' : 'cannot be reached'),
+      );
       expect(text, contains('Do not write it again'));
       expect(p.app.freigaben, isEmpty);
 
@@ -109,12 +109,12 @@ void main() {
       expect(vorgang['version'], isNull);
       expect(vorgang['anhaengen'], isFalse);
       expect(text, contains(vorgang['id'] as String));
-      expect(Directory(root).existsSync(), isFalse);
+      expect(File(datei('plan.md')).existsSync(), isFalse);
     });
 
     test('ein Anhängen ohne Wurzel wird als Anhängen gehalten', () async {
-      await ortAusfallen();
       final p = await laufendesPlugin();
+      await ortAusfallen();
       final ergebnis = await p.werkzeug(
         'context_append',
         schreiben(
@@ -128,8 +128,8 @@ void main() {
     });
 
     test('Wiederholen nach Wiederherstellung schreibt nach neuer Freigabe und räumt den Ausstand auf', () async {
-      await ortAusfallen();
       final p = await laufendesPlugin(stufe: 'mittel');
+      await ortAusfallen();
       await p.werkzeug(
         'context_write',
         schreiben(pfadArg: 'plan.md', inhalt: 'hallo\n', art: 'plan_change'),
@@ -154,8 +154,8 @@ void main() {
     test(
       'Wiederholen eines Journaleintrags hängt an, wenn die Datei noch fehlt',
       () async {
-        await ortAusfallen();
         final p = await laufendesPlugin(stufe: 'alle');
+        await ortAusfallen();
         await p.werkzeug(
           'context_append',
           schreiben(
@@ -175,8 +175,8 @@ void main() {
     );
 
     test('Wiederholen ersetzt nicht, wenn die Datei seit dem Zurückstellen geändert wurde', () async {
-      await ortAusfallen();
       final p = await laufendesPlugin(stufe: 'alle');
+      await ortAusfallen();
       await p.werkzeug(
         'context_write',
         schreiben(
@@ -202,8 +202,8 @@ void main() {
     test(
       'ein Konflikt hält nur seinen Vorgang an, die anderen werden geschrieben',
       () async {
-        await ortAusfallen();
         final p = await laufendesPlugin(stufe: 'alle');
+        await ortAusfallen();
         await p.werkzeug(
           'context_write',
           schreiben(pfadArg: 'a.md', inhalt: 'a\n', art: 'new_file'),
@@ -230,8 +230,8 @@ void main() {
     test(
       'eine Ablehnung beim Wiederholen entfernt den Vorgang, ohne zu schreiben',
       () async {
-        await ortAusfallen();
         final p = await laufendesPlugin(stufe: 'mittel', antwort: 'abgelehnt');
+        await ortAusfallen();
         await p.werkzeug(
           'context_write',
           schreiben(pfadArg: 'plan.md', inhalt: 'hallo\n', art: 'plan_change'),
@@ -249,8 +249,8 @@ void main() {
     );
 
     test('eine abgebrochene Freigabe beim Wiederholen lässt den Vorgang im Ausstand', () async {
-      await ortAusfallen();
       final p = await laufendesPlugin(stufe: 'mittel');
+      await ortAusfallen();
       await p.werkzeug(
         'context_write',
         schreiben(pfadArg: 'plan.md', inhalt: 'hallo\n', art: 'plan_change'),
@@ -267,8 +267,8 @@ void main() {
     });
 
     test('auf Stufe „keine“ wird ein Vorgang beim Wiederholen ohne Frage geschrieben', () async {
-      await ortAusfallen();
       final p = await laufendesPlugin(stufe: 'keine');
+      await ortAusfallen();
       await p.werkzeug(
         'context_write',
         schreiben(pfadArg: 'plan.md', inhalt: 'hallo\n', art: 'plan_change'),
@@ -282,8 +282,8 @@ void main() {
 
   group('Was nicht in den Ausstand kommt', () {
     test('ein Pfad, der aus der Wurzel führt, wird auch bei Ausfall abgewiesen und nicht gehalten', () async {
-      await ortAusfallen();
       final p = await laufendesPlugin();
+      await ortAusfallen();
       final ergebnis = await p.werkzeug(
         'context_write',
         schreiben(pfadArg: '../x.md', inhalt: 'x\n', art: 'new_file'),
@@ -293,8 +293,8 @@ void main() {
     });
 
     test('eine leere Zusammenfassung wird auch bei Ausfall abgewiesen und nicht gehalten', () async {
-      await ortAusfallen();
       final p = await laufendesPlugin();
+      await ortAusfallen();
       final ergebnis = await p.werkzeug(
         'context_write',
         schreiben(
@@ -311,8 +311,8 @@ void main() {
     test(
       'ein Journal, das ersetzt werden soll, wird auch bei Ausfall abgewiesen',
       () async {
-        await ortAusfallen();
         final p = await laufendesPlugin();
+        await ortAusfallen();
         final ergebnis = await p.werkzeug(
           'context_write',
           schreiben(
@@ -346,8 +346,8 @@ void main() {
     );
 
     test('eine Datei aus dem Ausstand wird nie als Kontext gelesen', () async {
-      await ortAusfallen();
       final p = await laufendesPlugin(stufe: 'mittel');
+      await ortAusfallen();
       await p.werkzeug(
         'context_write',
         schreiben(pfadArg: 'plan.md', inhalt: 'hallo\n', art: 'plan_change'),
@@ -359,6 +359,127 @@ void main() {
       final liste = await p.werkzeug('context_list', {'pfad': ''});
       expect(PluginProzess.text(liste), 'The folder is empty.');
       expect(ausstandDateien(), hasLength(1));
+    });
+  });
+
+  group('Schutz und Ort des Ausstands (Review #6)', () {
+    test('der Ausstand ist nur für die Benutzerin lesbar (Ordner 0700, Dateien 0600)', () async {
+      if (Platform.isWindows) {
+        markTestSkipped('die Rechte gelten nur auf POSIX');
+        return;
+      }
+      final p = await laufendesPlugin(stufe: 'mittel');
+      await ortAusfallen();
+      await p.werkzeug(
+        'context_write',
+        schreiben(pfadArg: 'plan.md', inhalt: 'hallo\n', art: 'plan_change'),
+      );
+
+      final ordnerRechte = FileStat.statSync(ausstandOrdner).mode & 0x1FF;
+      final dateiRechte =
+          FileStat.statSync(ausstandDateien().single.path).mode & 0x1FF;
+      expect(ordnerRechte.toRadixString(8), '700');
+      expect(dateiRechte.toRadixString(8), '600');
+    });
+
+    test('eine Datei mit einer Kennung aus Pfadteilen wird nicht gelesen und nicht gelöscht', () async {
+      final p = await laufendesPlugin(stufe: 'alle');
+      await ortAusfallen();
+      await p.werkzeug(
+        'context_write',
+        schreiben(pfadArg: 'plan.md', inhalt: 'hallo\n', art: 'plan_change'),
+      );
+      await ortWiederherstellen();
+      // Eine Datei im Ausstand, deren Kennung auf eine Datei außerhalb zeigt.
+      final fremd = File(pfad.join(ordner.path, 'opfer.json'));
+      await fremd.writeAsString('{}');
+      final gefaelscht = File(pfad.join(ausstandOrdner, 'falsch.json'));
+      await gefaelscht.writeAsString(
+        jsonEncode({
+          'id': '../opfer',
+          'zeit': DateTime.now().toUtc().toIso8601String(),
+          'ort': 'lokal:$root',
+          'pfad': 'x.md',
+          'inhalt': 'x\n',
+          'art': 'new_file',
+          'zusammenfassung': 'z',
+          'version': null,
+          'anhaengen': false,
+        }),
+      );
+
+      final text = PluginProzess.text(
+        await p.werkzeug('context_start', {'wiederholen': true}),
+      );
+
+      expect(text, contains('pending writes: cannot be read'));
+      expect(p.app.freigaben, isEmpty, reason: 'nichts wird wiederholt');
+      expect(
+        fremd.existsSync(),
+        isTrue,
+        reason: 'außerhalb wird nichts gelöscht',
+      );
+      expect(gefaelscht.existsSync(), isTrue);
+    });
+
+    test('ein Vorgang gehört zu dem Ort, an dem er entstand: ein anderer Ort wird nicht beschrieben', () async {
+      final p = await laufendesPlugin(stufe: 'alle');
+      await ortAusfallen();
+      await p.werkzeug(
+        'context_write',
+        schreiben(pfadArg: 'plan.md', inhalt: 'hallo\n', art: 'plan_change'),
+      );
+      // Die Lehrkraft richtet einen anderen Ordner ein.
+      final anders = Directory(pfad.join(ordner.path, 'anders'))..createSync();
+      await p.einstellungen.writeAsString(
+        jsonEncode({'art': 'lokal', 'pfad': anders.path}),
+      );
+
+      final text = PluginProzess.text(
+        await p.werkzeug('context_start', {'wiederholen': true}),
+      );
+
+      expect(text, contains('It was kept for another location'));
+      expect(File(pfad.join(anders.path, 'plan.md')).existsSync(), isFalse);
+      expect(
+        ausstandDateien(),
+        hasLength(1),
+        reason: 'der Vorgang bleibt stehen',
+      );
+      expect(
+        p.app.freigaben,
+        isEmpty,
+        reason: 'für einen fremden Ort wird nicht gefragt',
+      );
+    });
+
+    test('ist ein Vorgang nach Ablehnung nicht entfernbar, bleibt die Antwort vollständig', () async {
+      if (Process.runSync('id', ['-u']).stdout.toString().trim() == '0') {
+        markTestSkipped('als Root lässt sich ein Ordner trotz Rechten ändern');
+        return;
+      }
+      final p = await laufendesPlugin(stufe: 'mittel', antwort: 'abgelehnt');
+      await ortAusfallen();
+      for (final name in ['a.md', 'b.md']) {
+        await p.werkzeug(
+          'context_write',
+          schreiben(pfadArg: name, inhalt: 'x\n', art: 'plan_change'),
+        );
+      }
+      await ortWiederherstellen();
+      // Der Ordner wird nur lesbar: Die Freigabe wird abgelehnt, das Entfernen schlägt fehl.
+      Process.runSync('chmod', ['500', ausstandOrdner]);
+      addTearDown(() => Process.runSync('chmod', ['700', ausstandOrdner]));
+
+      final ergebnis = await p.werkzeug('context_start', {'wiederholen': true});
+
+      expect(ergebnis['isError'], isNot(true));
+      final text = PluginProzess.text(ergebnis);
+      expect(text, contains('replay:'));
+      expect(text, contains('a.md'));
+      expect(text, contains('b.md'));
+      expect(text, contains('cannot be removed'));
+      expect(ausstandDateien(), hasLength(2));
     });
   });
 }

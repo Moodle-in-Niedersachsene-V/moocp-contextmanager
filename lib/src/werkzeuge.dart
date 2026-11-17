@@ -5,17 +5,19 @@ import 'art.dart';
 import 'ausstand.dart';
 import 'fehler.dart';
 import 'inhaltsverzeichnis.dart';
+import 'ort.dart';
+import 'pfad.dart';
 import 'schreibauftrag.dart';
 import 'speicher.dart';
 import 'start.dart';
 
 /// Die Werkzeuge des Plugins am MCP-Server. Jeder Aufruf öffnet den
-/// Kontextbereich neu über [oeffnen] (siehe `oeffneKontextbereich`), damit
-/// eine Änderung der Einstellungen sofort wirkt und ein Fehler sofort sichtbar
-/// wird. Fehler kommen als Ergebnis mit `isError`, nie als Ausnahme.
+/// Kontextbereich neu über [zugang], damit eine Änderung der Einstellungen
+/// sofort wirkt und ein Fehler sofort sichtbar wird. Fehler kommen als Ergebnis
+/// mit `isError`, nie als Ausnahme.
 void registriereWerkzeuge(
   McpServer server,
-  Future<LokalerSpeicher> Function() oeffnen,
+  Ortszugang zugang,
   AppAnschluss app,
   Ausstand ausstand,
 ) {
@@ -42,7 +44,7 @@ void registriereWerkzeuge(
     callback: (args, extra) async {
       return _ausfuehren(() async {
         final pfad = _optionalerText(args, 'pfad') ?? '';
-        final speicher = await oeffnen();
+        final speicher = await zugang.oeffnen();
         final eintraege = await speicher.liste(pfad);
         if (eintraege.isEmpty) return 'The folder is empty.';
         return eintraege
@@ -92,7 +94,7 @@ void registriereWerkzeuge(
         final pfad = _text(args, 'pfad');
         final abschnitt = _optionalerText(args, 'abschnitt');
         final ganz = _optionalerBool(args, 'ganz') ?? false;
-        final speicher = await oeffnen();
+        final speicher = await zugang.oeffnen();
         final gelesen = await speicher.lese(pfad);
         return leseAusschnitt(pfad, gelesen, abschnitt: abschnitt, ganz: ganz);
       });
@@ -124,7 +126,7 @@ void registriereWerkzeuge(
     callback: (args, extra) async => _schreibVorgang(
       args: args,
       aufruf: _aufruf(extra),
-      oeffnen: oeffnen,
+      zugang: zugang,
       app: app,
       ausstand: ausstand,
       anhaengen: false,
@@ -152,7 +154,7 @@ void registriereWerkzeuge(
     callback: (args, extra) async => _schreibVorgang(
       args: args,
       aufruf: _aufruf(extra),
-      oeffnen: oeffnen,
+      zugang: zugang,
       app: app,
       ausstand: ausstand,
       anhaengen: true,
@@ -186,7 +188,7 @@ void registriereWerkzeuge(
       return _ausfuehren(() async {
         final wiederholen = _optionalerBool(args, 'wiederholen') ?? false;
         return leseStart(
-          oeffnen: oeffnen,
+          zugang: zugang,
           ausstand: ausstand,
           app: app,
           aufruf: _aufruf(extra),
@@ -228,7 +230,7 @@ JsonObject _schreibSchema({required String mitInhalt}) => JsonSchema.object(
 Future<CallToolResult> _schreibVorgang({
   required Map<String, dynamic> args,
   required String? aufruf,
-  required Future<LokalerSpeicher> Function() oeffnen,
+  required Ortszugang zugang,
   required AppAnschluss app,
   required Ausstand ausstand,
   required bool anhaengen,
@@ -236,11 +238,11 @@ Future<CallToolResult> _schreibVorgang({
   return _ausfuehren(() async {
     final auftrag = _auftragAus(args, anhaengen: anhaengen);
 
-    final LokalerSpeicher speicher;
+    final Kontextspeicher speicher;
     try {
-      speicher = await oeffnen();
+      speicher = await zugang.oeffnen();
     } on KontextNichtErreichbar catch (f) {
-      return _zurueckgestellt(auftrag, ausstand, f.meldung);
+      return _zurueckgestellt(auftrag, zugang, ausstand, f.meldung);
     }
     // Vor der Frage prüfen: Ein Vorgang, der ohnehin scheitert, fragt nicht.
     await speicher.pruefeStand(auftrag.pfad, erwartet: auftrag.version);
@@ -267,13 +269,15 @@ Future<CallToolResult> _schreibVorgang({
     }
 
     // Nach der Freigabe noch einmal öffnen: Der Ort kann in der Wartezeit verschwunden sein.
-    final LokalerSpeicher offen;
+    // Antwortet er auch beim Schreiben nicht, kommt der Vorgang in den Ausstand. Die Wiederholung
+    // prüft den Stand: Hat der Server doch geschrieben, meldet sie einen Konflikt statt zu überschreiben.
+    final Geschrieben geschrieben;
     try {
-      offen = await oeffnen();
+      final offen = await zugang.oeffnen();
+      geschrieben = await schreibeAuftrag(offen, auftrag);
     } on KontextNichtErreichbar catch (f) {
-      return _zurueckgestellt(auftrag, ausstand, f.meldung);
+      return _zurueckgestellt(auftrag, zugang, ausstand, f.meldung);
     }
-    final geschrieben = await schreibeAuftrag(offen, auftrag);
     if (!geschrieben.verifiziert) {
       throw KontextFehler(
         "not verified: '${auftrag.pfad}' does not read back with the written content. Read it before going on.",
@@ -290,10 +294,11 @@ Future<CallToolResult> _schreibVorgang({
 /// geschrieben werden soll.
 Future<String> _zurueckgestellt(
   Schreibauftrag auftrag,
+  Ortszugang zugang,
   Ausstand ausstand,
   String grund,
 ) async {
-  final eintrag = await ausstand.merke(auftrag);
+  final eintrag = await ausstand.merke(auftrag, ort: await zugang.kennung());
   return 'not saved yet: the context area does not answer ($grund)\n'
       'The write is kept as pending write ${eintrag.id}; nothing was written to the '
       'context area. Do not write it again: context_start with "wiederholen": true '
@@ -312,7 +317,7 @@ Schreibauftrag _auftragAus(
   final zusammenfassung = _text(args, 'zusammenfassung');
   final art = _art(args);
   final version = _optionalerText(args, 'version');
-  LokalerSpeicher.pruefeSchreibPfad(pfad);
+  schreibTeile(pfad);
   if (zusammenfassung.trim().isEmpty) {
     throw const KontextFehler(
       "The summary is empty: pass a short German summary of the change in 'zusammenfassung'.",
