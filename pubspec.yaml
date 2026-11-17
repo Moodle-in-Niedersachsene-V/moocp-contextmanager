@@ -1,0 +1,17 @@
+# Plugin "context" für moocp: Kontextbereich der Lehrkraft als MCP-Server auf
+# 127.0.0.1. Nur Pakete mit freizügiger Lizenz (MIT, BSD, Apache 2.0), auch
+# unter den indirekten, wie im Beispiel-Plugin von moocp.
+name: contextmanager
+description: Plugin für moocp, das der KI den Kontextbereich der Lehrkraft gibt.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.2
+dependencies:
+  crypto: ^3.0.8
+  mcp_dart: ^2.4.4
+  path: ^1.9.1
+  xml: ^7.1.0
+dev_dependencies:
+  test: ^1.33.0

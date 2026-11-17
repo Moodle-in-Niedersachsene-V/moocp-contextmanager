@@ -1,0 +1,8 @@
+# Die Analyse des Plugins (Dart). Das Einstellungsfenster in `fenster/` ist ein
+# eigenes Flutter-Paket mit eigener analysis_options.yaml und wird dort mit
+# `flutter analyze` geprüft; es gehört nicht hierher.
+analyzer:
+  exclude:
+    - fenster/**
+    - build/**
+    - .dart_tool/**

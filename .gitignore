@@ -2,3 +2,4 @@
 /installer/*.exe
 .dart_tool/
 CLAUDE.local.md
+fenster/build/
