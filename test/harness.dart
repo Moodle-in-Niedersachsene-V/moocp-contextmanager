@@ -131,6 +131,7 @@ class PluginProzess {
     bool mitPort = true,
     bool mitEntwicklung = false,
     String? fenster,
+    bool webdavSendetEtag = true,
   }) async {
     final port = await _freierPort();
     final app = FakeApp();
@@ -180,6 +181,7 @@ class PluginProzess {
         ordner: Directory(root),
         benutzer: testBenutzer,
         passwort: testPasswort,
+        sendetEtag: webdavSendetEtag,
       );
       await webdav.starten();
       // Ein Ersatz für secret-tool: Er kennt nur das Konto dieser Testanlage und
@@ -227,8 +229,10 @@ class PluginProzess {
     );
     Process.runSync('chmod', ['755', fensterSkript.path]);
 
+    // Mit KONTEXT_PROGRAMM läuft das gebaute Plugin (bauen.sh) statt des Quelltexts.
+    final gebaut = Platform.environment['KONTEXT_PROGRAMM'];
     final args = [
-      'bin/context.dart',
+      if (gebaut == null) 'bin/context.dart',
       if (mitPort) ...['--port', '$port'],
       '--einstellungen',
       einstellungen.path,
@@ -237,7 +241,7 @@ class PluginProzess {
       if (mitEntwicklung) '--entwicklung',
     ];
     final prozess = await Process.start(
-      Platform.resolvedExecutable,
+      gebaut ?? Platform.resolvedExecutable,
       args,
       environment: {
         if (schluessel != null) 'MOOCP_PLUGIN_SCHLUESSEL': schluessel,

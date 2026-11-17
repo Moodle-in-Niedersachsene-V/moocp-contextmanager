@@ -351,7 +351,8 @@ Future<List<Wiederholung>> wiederholeAusstand({
         Wiederholung(
           vorgang,
           WiederholungAusgang.geschrieben,
-          'written and verified (version: ${geschrieben.version}).',
+          'written and verified (version: ${geschrieben.version}).'
+          '${geschrieben.hinweis == null ? '' : ' ${geschrieben.hinweis}'}',
         ),
       );
     } on KontextNichtErreichbar catch (f) {

@@ -160,6 +160,27 @@ void _tests(Ortsart art) {
       expect(suche.zeitlimitErreicht, isTrue);
       expect(suche.funde, isEmpty);
     });
+
+    test('ein langsamer Ort mit vielen Ordnern wird gleichzeitig abgefragt und ganz geprüft', () async {
+      // 60 Ordner zu je 100 ms: nacheinander 6 s, gleichzeitig unter 1,5 s. Das Zeitlimit
+      // von 3 s hätte die alte, einzelne Abfrage mitten in der Suche abgebrochen.
+      final langsam = _LangsamerSpeicher(ordner: 60, pause: const Duration(milliseconds: 100));
+      final suche = await sucheKonfliktkopien(langsam, zeitlimit: const Duration(seconds: 3));
+      expect(suche.zeitlimitErreicht, isFalse);
+      expect(suche.begrenzt, isFalse);
+      expect(suche.geprueft, 61);
+      expect(suche.funde.map((k) => k.pfad), ['ordner-59/plan (Conflicted copy).md']);
+      expect(langsam.hoechstGleichzeitig, lessThanOrEqualTo(konfliktParallel));
+      expect(langsam.hoechstGleichzeitig, greaterThan(1));
+    });
+
+    test('eine abgelaufene Zeit nennt, wie viele Ordner geprüft sind und wie viele warten', () async {
+      final langsam = _LangsamerSpeicher(ordner: 60, pause: const Duration(milliseconds: 200));
+      final suche = await sucheKonfliktkopien(langsam, zeitlimit: const Duration(milliseconds: 500));
+      expect(suche.zeitlimitErreicht, isTrue);
+      expect(suche.geprueft, lessThan(61));
+      expect(suche.ungeprueft, greaterThan(0));
+    });
   }
 
   group('context_start meldet Konfliktkopien im ganzen Kontextbereich', () {
@@ -216,4 +237,45 @@ void _tests(Ortsart art) {
       );
     });
   });
+}
+
+/// Ein Ort mit vielen Ordnern und langsamen Antworten, ohne Platte und Netz.
+/// Er zählt, wie viele Auflistungen gleichzeitig liefen. Im letzten Ordner liegt
+/// eine Konfliktkopie.
+class _LangsamerSpeicher extends Kontextspeicher {
+  _LangsamerSpeicher({required this.ordner, required this.pause});
+
+  final int ordner;
+  final Duration pause;
+  int _laufend = 0;
+  int hoechstGleichzeitig = 0;
+
+  @override
+  Future<List<Eintrag>> liste(String relativ) async {
+    _laufend++;
+    if (_laufend > hoechstGleichzeitig) hoechstGleichzeitig = _laufend;
+    await Future<void>.delayed(pause);
+    _laufend--;
+    if (relativ.isEmpty) {
+      return [for (var n = 0; n < ordner; n++) Eintrag('ordner-$n', istOrdner: true)];
+    }
+    if (relativ == 'ordner-${ordner - 1}') {
+      return [
+        const Eintrag('plan.md', istOrdner: false),
+        const Eintrag('plan (Conflicted copy).md', istOrdner: false),
+      ];
+    }
+    return const [];
+  }
+
+  @override
+  Future<Inhalt?> holeInhalt(String relativ) async => null;
+
+  @override
+  Future<Bedingung> ablegen(String relativ, List<int> bytes, {required String? erwartet}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<Bedingung> verschiebeDatei(String von, String nach, {required String erwartet}) =>
+      throw UnimplementedError();
 }

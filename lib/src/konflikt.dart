@@ -8,6 +8,9 @@ const konfliktHoechstTiefe = 10;
 const konfliktHoechstOrdner = 500;
 const konfliktZeitlimit = Duration(seconds: 20);
 
+/// Wie viele Ordner die Suche gleichzeitig abfragt.
+const konfliktParallel = 8;
+
 /// Die Muster der Namen, die Sync-Clients für Konfliktkopien vergeben (ADR 0007). Jedes Muster hat als erste Gruppe den Stamm und als zweite die
 /// Endung des Originals.
 final _muster = <RegExp>[
@@ -84,7 +87,14 @@ class KonfliktSuche {
     required this.unpruefbar,
     required this.begrenzt,
     required this.zeitlimitErreicht,
+    this.geprueft = 0,
+    this.ungeprueft = 0,
   });
+
+  /// Wie viele Ordner gelesen wurden, und wie viele bekannte Ordner noch warteten,
+  /// als die Suche endete.
+  final int geprueft;
+  final int ungeprueft;
 
   final List<Konfliktkopie> funde;
   final List<String> unpruefbar;
@@ -102,6 +112,12 @@ class KonfliktSuche {
 /// Sucht Konfliktkopien im ganzen Kontextbereich, breit zuerst. Ein Ordner, der
 /// sich nicht lesen lässt, wird genannt und übergangen. Antwortet der Ort nicht,
 /// wirft es [KontextNichtErreichbar].
+///
+/// Jeder Ordner kostet eine Anfrage (bei WebDAV ein PROPFIND mit Tiefe 1). Ein
+/// PROPFIND mit unbegrenzter Tiefe wäre eine Anfrage für alles, doch viele Server
+/// lehnen ihn ab oder antworten riesig; die Ordner einer Ebene werden deshalb
+/// gleichzeitig abgefragt ([konfliktParallel]), das Stück für Stück bleibt
+/// begrenzt und die Wartezeit eines langsamen Servers verteilt sich.
 Future<KonfliktSuche> sucheKonfliktkopien(
   Kontextspeicher speicher, {
   Duration zeitlimit = konfliktZeitlimit,
@@ -122,24 +138,31 @@ Future<KonfliktSuche> sucheKonfliktkopien(
       zeitlimitErreicht = true;
       break;
     }
-    final (ordner, tiefe) = warteschlange.removeAt(0);
-    geprueft++;
-    final List<Eintrag> eintraege;
-    try {
-      eintraege = await speicher.liste(ordner);
-    } on KontextNichtErreichbar {
-      rethrow;
-    } on KontextFehler catch (f) {
-      unpruefbar.add(f.meldung);
-      continue;
-    }
-    funde.addAll(konfliktkopienIn(ordner, eintraege));
-    for (final e in eintraege.where((e) => e.istOrdner)) {
-      if (tiefe + 1 > konfliktHoechstTiefe) {
-        begrenzt = true;
+    final platz = konfliktHoechstOrdner - geprueft;
+    final stueck = warteschlange.take(
+      platz < konfliktParallel ? platz : konfliktParallel,
+    ).toList();
+    warteschlange.removeRange(0, stueck.length);
+    geprueft += stueck.length;
+    final ergebnisse = await Future.wait([
+      for (final (ordner, _) in stueck) _liesOrdner(speicher, ordner),
+    ], eagerError: true);
+    for (var n = 0; n < stueck.length; n++) {
+      final (ordner, tiefe) = stueck[n];
+      final ergebnis = ergebnisse[n];
+      if (ergebnis.fehler != null) {
+        unpruefbar.add(ergebnis.fehler!);
         continue;
       }
-      warteschlange.add((Konfliktkopie.verbinde(ordner, e.name), tiefe + 1));
+      final eintraege = ergebnis.eintraege!;
+      funde.addAll(konfliktkopienIn(ordner, eintraege));
+      for (final e in eintraege.where((e) => e.istOrdner)) {
+        if (tiefe + 1 > konfliktHoechstTiefe) {
+          begrenzt = true;
+          continue;
+        }
+        warteschlange.add((Konfliktkopie.verbinde(ordner, e.name), tiefe + 1));
+      }
     }
   }
   return KonfliktSuche(
@@ -147,7 +170,24 @@ Future<KonfliktSuche> sucheKonfliktkopien(
     unpruefbar: unpruefbar,
     begrenzt: begrenzt,
     zeitlimitErreicht: zeitlimitErreicht,
+    geprueft: geprueft,
+    ungeprueft: warteschlange.length,
   );
+}
+
+/// Liest einen Ordner für die Suche: die Einträge oder, wenn er sich nicht lesen
+/// lässt, den Grund. Antwortet der Ort nicht, wirft es.
+Future<({List<Eintrag>? eintraege, String? fehler})> _liesOrdner(
+  Kontextspeicher speicher,
+  String ordner,
+) async {
+  try {
+    return (eintraege: await speicher.liste(ordner), fehler: null);
+  } on KontextNichtErreichbar {
+    rethrow;
+  } on KontextFehler catch (f) {
+    return (eintraege: null, fehler: f.meldung);
+  }
 }
 
 /// Die Zeilen je Konfliktkopie. [vollerPfad]: Pfade relativ zur Wurzel statt

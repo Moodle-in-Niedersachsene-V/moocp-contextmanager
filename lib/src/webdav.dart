@@ -2,17 +2,23 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:xml/xml.dart';
 
 import 'fehler.dart';
 import 'pfad.dart';
 import 'speicher.dart';
 
-/// Der Kontextbereich auf einem WebDAV-Server (E3, E4). Die Wurzel ist eine
-/// Adresse; alle Dateien liegen darunter. Die Version einer Datei ist ihr ETag,
-/// ohne Anführungszeichen. Schreiben verlangt das ETag als `If-Match` oder
+/// Der Kontextbereich auf einem WebDAV-Server (E3, E4, E9). Die Wurzel ist eine
+/// Adresse; alle Dateien liegen darunter. Die Version einer Datei ist ihr starkes
+/// ETag, ohne Anführungszeichen. Schreiben verlangt das ETag als `If-Match` oder
 /// `If-None-Match: *`, so dass der Server selbst ablehnt, wenn sich die Datei
 /// geändert hat.
+///
+/// Sendet der Server kein starkes ETag, ist die Version die Prüfsumme der Bytes
+/// (`sha256:…`, ADR 0009). Das Plugin liest dann unmittelbar vor dem Schreiben
+/// noch einmal und vergleicht; der Server erzwingt nichts, und das Ergebnis
+/// ([Bedingung.nurVomPlugin]) sagt es.
 ///
 /// Der Ort antwortet nicht (Netzfehler, Zeitablauf, 5xx): [KontextNichtErreichbar].
 /// Anmeldung, Adresse und fehlende Dateien sind Ursachen, die sichtbar bleiben:
@@ -112,7 +118,7 @@ class WebDavSpeicher extends Kontextspeicher {
     if (antwort.status != HttpStatus.ok) {
       throw _fehler(antwort.status, relativ);
     }
-    return Inhalt(antwort.bytes, _version(antwort, relativ));
+    return Inhalt(antwort.bytes, _version(antwort));
   }
 
   /// Ob der Pfad auf dem Server ein Ordner ist (PROPFIND auf den Pfad selbst).
@@ -129,19 +135,23 @@ class WebDavSpeicher extends Kontextspeicher {
   }
 
   @override
-  Future<void> ablegen(
+  Future<Bedingung> ablegen(
     String relativ,
     List<int> bytes, {
     required String? erwartet,
   }) async {
     final teile = schreibTeile(relativ);
     await _ordnerAnlegen(teile.sublist(0, teile.length - 1), relativ);
+    final ohneEtag = erwartet != null && erwartet.startsWith(inhaltsVersionPraefix);
+    // Ohne ETag gibt es keine Bedingung für den Server. Das Plugin vergleicht
+    // selbst, so spät wie möglich: unmittelbar vor dem PUT.
+    if (ohneEtag) await _pruefeInhaltsstand(relativ, erwartet);
     final kopf = <String, String>{
       HttpHeaders.contentTypeHeader: 'text/markdown; charset=utf-8',
       // Die Bedingung des Servers: Die Datei darf sich seit dem Lesen nicht geändert haben.
       if (erwartet == null)
         HttpHeaders.ifNoneMatchHeader: '*'
-      else
+      else if (!ohneEtag)
         HttpHeaders.ifMatchHeader: '"$erwartet"',
     };
     final antwort = await _anfrage(
@@ -152,7 +162,7 @@ class WebDavSpeicher extends Kontextspeicher {
     );
     switch (antwort.status) {
       case HttpStatus.ok || HttpStatus.created || HttpStatus.noContent:
-        return;
+        return ohneEtag ? Bedingung.nurVomPlugin : Bedingung.vomServer;
       case HttpStatus.preconditionFailed:
         throw KontextKonflikt(
           erwartet == null
@@ -171,14 +181,18 @@ class WebDavSpeicher extends Kontextspeicher {
   /// Verschiebt per MOVE. `Overwrite: F` lässt ein vorhandenes Ziel stehen, und
   /// `If-Match` mit dem gelesenen ETag der Quelle lässt die Verschiebung scheitern,
   /// wenn sich die Quelle geändert hat. Beides prüft der Server in einem Schritt.
+  /// Ohne ETag entfällt `If-Match`; `Overwrite: F` bleibt, und das Plugin vergleicht
+  /// die Quelle selbst unmittelbar davor.
   @override
-  Future<void> verschiebeDatei(
+  Future<Bedingung> verschiebeDatei(
     String von,
     String nach, {
     required String erwartet,
   }) async {
     final ziel = pfadTeile(nach);
     await _ordnerAnlegen(ziel.sublist(0, ziel.length - 1), nach);
+    final ohneEtag = erwartet.startsWith(inhaltsVersionPraefix);
+    if (ohneEtag) await _pruefeInhaltsstand(von, erwartet);
     final antwort = await _anfrage(
       'MOVE',
       _url(pfadTeile(von)),
@@ -186,12 +200,12 @@ class WebDavSpeicher extends Kontextspeicher {
         'Destination': _url(ziel).toString(),
         // Ein vorhandenes Ziel wird nie überschrieben.
         'Overwrite': 'F',
-        HttpHeaders.ifMatchHeader: '"$erwartet"',
+        if (!ohneEtag) HttpHeaders.ifMatchHeader: '"$erwartet"',
       },
     );
     switch (antwort.status) {
       case HttpStatus.ok || HttpStatus.created || HttpStatus.noContent:
-        return;
+        return ohneEtag ? Bedingung.nurVomPlugin : Bedingung.vomServer;
       case HttpStatus.preconditionFailed:
         throw KontextKonflikt(
           "'$von' changed since it was read, or '$nach' already exists; nothing was moved. "
@@ -225,19 +239,29 @@ class WebDavSpeicher extends Kontextspeicher {
     }
   }
 
-  /// Das ETag als Version. Ein schwaches ETag oder keines reicht nicht: Ohne
-  /// starkes ETag gibt es keine Stand-Prüfung, die der Server erzwingt.
-  String _version(_Antwort antwort, String relativ) {
-    final etag = antwort.kopf[HttpHeaders.etagHeader];
-    if (etag == null) {
-      throw KontextFehler(
-        "The WebDAV server sends no ETag for '$relativ'; without it changes cannot be checked. Nothing was written.",
+  /// Vergleicht den jetzigen Stand der Datei mit der Version, die die KI las
+  /// (nur ohne ETag). Wirft [KontextKonflikt], wenn sie fehlt oder anders ist.
+  Future<void> _pruefeInhaltsstand(String relativ, String erwartet) async {
+    final aktuell = (await holeInhalt(relativ))?.version;
+    if (aktuell == null) {
+      throw KontextKonflikt(
+        "'$relativ' does not exist (any more). Pass no version to create it.",
       );
     }
-    if (etag.startsWith('W/')) {
-      throw KontextFehler(
-        "The WebDAV server sends only weak ETags for '$relativ'; changes cannot be checked. Nothing was written.",
+    if (aktuell != erwartet) {
+      throw KontextKonflikt(
+        "'$relativ' changed since it was read. Read it again and check the change before writing.",
       );
+    }
+  }
+
+  /// Die Version einer gelesenen Datei: das starke ETag. Fehlt es oder ist es
+  /// schwach (`W/`), ist es die Prüfsumme der Bytes mit Präfix (ADR 0009); die
+  /// Schreibwege wissen am Präfix, dass der Server nichts erzwingt.
+  String _version(_Antwort antwort) {
+    final etag = antwort.kopf[HttpHeaders.etagHeader];
+    if (etag == null || etag.startsWith('W/')) {
+      return '$inhaltsVersionPraefix${sha256.convert(antwort.bytes)}';
     }
     if (etag.length >= 2 && etag.startsWith('"') && etag.endsWith('"')) {
       return etag.substring(1, etag.length - 1);

@@ -19,7 +19,7 @@ Das Original ist der Name mit gleicher Endung ohne den Zusatz. Ob es im selben O
 
 **Wo gemeldet.** `context_list` meldet die Konfliktkopien des Ordners, den es auflistet, unter der Liste, nur auf dieser Ebene. `context_start` sucht im ganzen Kontextbereich, breit zuerst, und nennt Pfade relativ zur Wurzel. Ein Ordner, der sich nicht lesen lässt, wird genannt und übergangen.
 
-**Obergrenzen.** Die Suche prüft höchstens 500 Ordner und 10 Ebenen tief und bricht nach 20 Sekunden ab. Was darüber liegt, wird nicht geprüft, und die Antwort sagt „not fully checked“. So wächst die Startantwort nicht mit einem unerwartet großen Kontextbereich, und eine Verknüpfung, die im Kreis führt, hält die Suche nicht an. Die Zeitgrenze lässt sich am MCP-Seam nicht verkürzen und wird deshalb am Modul geprüft.
+**Obergrenzen.** Die Suche prüft höchstens 500 Ordner und 10 Ebenen tief und bricht nach 20 Sekunden ab. Was darüber liegt, wird nicht geprüft, und die Antwort sagt „not fully checked“, nennt die Ursache (Obergrenze oder Zeit) und wie viele Ordner geprüft sind und wie viele noch warteten. Je Ordner kostet es eine Anfrage; die Ordner einer Ebene werden bis zu acht gleichzeitig abgefragt, damit ein Server mit langer Antwortzeit nicht allein die Zeit aufbraucht. Ein einziger `PROPFIND` mit unbegrenzter Tiefe ist verworfen: Viele Server lehnen ihn ab oder antworten mit dem ganzen Baum. So wächst die Startantwort nicht mit einem unerwartet großen Kontextbereich, und eine Verknüpfung, die im Kreis führt, hält die Suche nicht an. Die Zeitgrenze lässt sich am MCP-Seam nicht verkürzen und wird deshalb am Modul geprüft.
 
 **Ausfall.** Antwortet der Ort während der Suche nicht, steht in der Antwort „not checked“ mit dem Grund; `context_start` wirft nicht.
 
