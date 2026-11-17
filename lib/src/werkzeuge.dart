@@ -234,7 +234,10 @@ void registriereWerkzeuge(
         'Pass the folder ("ordner", empty for the root) and the file names directly inside it ("dateien"). '
         'Nothing is deleted or overwritten: if a target already exists, nothing is moved. Journals are never '
         'moved. The teacher is asked for approval like for a new file. If the context area does not answer, '
-        'nothing is moved and nothing is kept as a pending write; repeat the call later. Paths that leave the '
+        'nothing is moved and nothing is kept as a pending write; repeat the call later. After the move the reply '
+        'lists, under "references:", every place (file, line) in the index.md and CONTEXT.md files of that folder, '
+        'of the levels above and of the levels below that points to a moved file, or says the search was INCOMPLETE; '
+        'fix those references at once with context_write. The tool never rewrites an index itself. Paths that leave the '
         'context area are refused.',
     inputSchema: JsonSchema.object(
       properties: {

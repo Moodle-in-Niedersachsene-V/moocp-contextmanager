@@ -28,4 +28,4 @@ Every level has an `index.md`. It only points: to the levels below it and to the
 
 ## Old layout (Coursepilot)
 
-Old files stay readable as they are: `CONTEXT.md`, `status.md`, `journal-*.md`. New writes use the new layout. To restructure a unit: write the new files, then move the old ones into `archive/` with `context_archive`. Journals stay where they are.
+Old files stay readable as they are: `CONTEXT.md`, `status.md`, `journal-*.md`. New writes use the new layout. To restructure a unit: write the new files, then move the old ones into `archive/` with `context_archive`. Journals stay where they are. Then fix every reference to the moved files that `context_archive` reports in its `references:` part, in the same step (see SKILL.md, Signposts and archive).

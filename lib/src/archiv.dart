@@ -4,6 +4,7 @@ import 'fehler.dart';
 import 'ort.dart';
 import 'pfad.dart';
 import 'speicher.dart';
+import 'verweise.dart';
 
 /// Die Freigabestufe der Archivierung: wie bei einer neuen Datei (E6). Die
 /// Verschiebung ist keine Art der Änderung von Art.dart. Aus dem Wurzelordner
@@ -111,16 +112,41 @@ Future<String> archiviere({
       }
     }
   } on KontextNichtErreichbar catch (f) {
-    throw KontextFehler(_teilstand(verschoben, vorher, f.meldung));
+    throw KontextFehler(
+      '${_teilstand(verschoben, vorher, f.meldung)}'
+      '${await _verweise(speicher, ordnerTeile, verschoben)}',
+    );
   } on KontextFehler catch (f) {
     if (verschoben.isEmpty) rethrow;
-    throw KontextFehler(_teilstand(verschoben, vorher, f.meldung));
+    throw KontextFehler(
+      '${_teilstand(verschoben, vorher, f.meldung)}'
+      '${await _verweise(speicher, ordnerTeile, verschoben)}',
+    );
   }
 
   return 'verified\n'
       'moved: ${verschoben.length}\n'
       '${[for (final v in verschoben) '- ${v.von} -> ${v.nach}'].join('\n')}'
-      '${nichtErzwungen ? '\n$hinweisNichtErzwungen' : ''}';
+      '${nichtErzwungen ? '\n$hinweisNichtErzwungen' : ''}'
+      '${await _verweise(speicher, ordnerTeile, verschoben)}';
+}
+
+/// Der Abschnitt der Antwort über Verweise auf die verschobenen Dateien (E10):
+/// jede Stelle in den Indexdateien der Ebene, darüber und darunter, oder die
+/// ausdrückliche Aussage, dass die Suche unvollständig war. Nach dem Verschieben,
+/// nur lesend, und ohne zu werfen: Die Verschiebung ist dann schon geschehen.
+Future<String> _verweise(
+  Kontextspeicher speicher,
+  List<String> ordnerTeile,
+  List<_Verschiebung> verschoben,
+) async {
+  if (verschoben.isEmpty) return '';
+  final suche = await sucheVerweise(
+    speicher,
+    ordnerTeile: ordnerTeile,
+    verschoben: {for (final v in verschoben) v.von: v.nach},
+  );
+  return '\n${verweisBericht(suche)}';
 }
 
 /// Prüft die Argumente, bevor etwas gelesen oder gefragt wird.
