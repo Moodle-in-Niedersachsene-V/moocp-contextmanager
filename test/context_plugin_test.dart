@@ -76,7 +76,7 @@ void main() {
     });
 
     test(
-      'meldet sich als „context“ und bietet die vier Werkzeuge an',
+      'meldet sich als „context“ und bietet die fünf Werkzeuge an',
       () async {
         final p = await laufendesPlugin();
         final liste = await p.anfragen('tools/list', {});
@@ -87,6 +87,7 @@ void main() {
           'context_read',
           'context_write',
           'context_append',
+          'context_start',
         });
         for (final w in werkzeuge) {
           expect(w['name'], startsWith('context_'));

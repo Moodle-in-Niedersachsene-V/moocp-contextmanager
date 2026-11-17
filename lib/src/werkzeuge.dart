@@ -2,9 +2,12 @@ import 'package:mcp_dart/mcp_dart.dart';
 
 import 'app.dart';
 import 'art.dart';
+import 'ausstand.dart';
 import 'fehler.dart';
 import 'inhaltsverzeichnis.dart';
+import 'schreibauftrag.dart';
 import 'speicher.dart';
+import 'start.dart';
 
 /// Die Werkzeuge des Plugins am MCP-Server. Jeder Aufruf öffnet den
 /// Kontextbereich neu über [oeffnen] (siehe `oeffneKontextbereich`), damit
@@ -14,6 +17,7 @@ void registriereWerkzeuge(
   McpServer server,
   Future<LokalerSpeicher> Function() oeffnen,
   AppAnschluss app,
+  Ausstand ausstand,
 ) {
   server.registerTool(
     'context_list',
@@ -104,7 +108,9 @@ void registriereWerkzeuge(
         'Whether moocp asks the teacher for approval depends on her approval level and on '
         'art, the kind of change: journal, correction, plan_change, plan_addition, new_file '
         'or root_file. Files under journal/ cannot be replaced; use context_append. The write '
-        'is read back before it counts as verified. Only .md files; paths that leave the '
+        'is read back before it counts as verified. If the context area does not answer, the write '
+        'is kept as a pending write and is not saved yet; do not write it again (see context_start). '
+        'Only .md files; paths that leave the '
         'context area are refused.',
     inputSchema: _schreibSchema(
       mitInhalt: 'The whole new content of the file.',
@@ -120,6 +126,7 @@ void registriereWerkzeuge(
       aufruf: _aufruf(extra),
       oeffnen: oeffnen,
       app: app,
+      ausstand: ausstand,
       anhaengen: false,
     ),
   );
@@ -132,7 +139,8 @@ void registriereWerkzeuge(
         'omit it only when the file does not exist yet, and it is created. The write stops '
         'with a conflict if the file changed since it was read. Whether moocp asks the '
         'teacher for approval depends on her approval level and on art (see context_write). '
-        'The append is read back before it counts as verified. Only .md files; paths that '
+        'The append is read back before it counts as verified. If the context area does not answer, '
+        'the append is kept as a pending write and is not saved yet (see context_start). Only .md files; paths that '
         'leave the context area are refused.',
     inputSchema: _schreibSchema(mitInhalt: 'The text to append.'),
     annotations: const ToolAnnotations(
@@ -146,8 +154,46 @@ void registriereWerkzeuge(
       aufruf: _aufruf(extra),
       oeffnen: oeffnen,
       app: app,
+      ausstand: ausstand,
       anhaengen: true,
     ),
+  );
+
+  server.registerTool(
+    'context_start',
+    description:
+        'Call this first in every session. In one answer it returns whether the context '
+        'area answers (or the context gap and its cause), the pending writes that are not '
+        'yet saved, the root index.md and the root habits.md. Pass "wiederholen": true to '
+        'replay the pending writes now: each one is checked for changes like a new write '
+        'and approved by the teacher again before it is written. A changed target is reported '
+        'and never overwritten. Pending writes are not context: read the context area for '
+        'what is saved.',
+    inputSchema: JsonSchema.object(
+      properties: {
+        'wiederholen': JsonSchema.boolean(
+          description: 'true replays the pending writes now; default false.',
+        ),
+      },
+    ),
+    annotations: const ToolAnnotations(
+      title: 'Start context session',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    ),
+    callback: (args, extra) async {
+      return _ausfuehren(() async {
+        final wiederholen = _optionalerBool(args, 'wiederholen') ?? false;
+        return leseStart(
+          oeffnen: oeffnen,
+          ausstand: ausstand,
+          app: app,
+          aufruf: _aufruf(extra),
+          wiederholen: wiederholen,
+        );
+      });
+    },
   );
 }
 
@@ -175,58 +221,37 @@ JsonObject _schreibSchema({required String mitInhalt}) => JsonSchema.object(
   required: ['pfad', 'inhalt', 'art', 'zusammenfassung'],
 );
 
-/// Der Ablauf eines Schreibens: Stand prüfen, Freigabe, Stand erneut prüfen,
-/// schreiben, zurücklesen. Scheitert ein Schritt, ist nichts geschrieben, außer
-/// wenn das Zurücklesen abweicht; dann sagt die Antwort, dass es nicht geprüft ist.
+/// Der Ablauf eines Schreibens: Ort öffnen, Stand prüfen, Freigabe, Ort erneut
+/// öffnen, schreiben, zurücklesen. Antwortet der Ort nicht, kommt der Auftrag in den
+/// Ausstand und die Antwort sagt, dass er noch nicht gespeichert ist (E2).
+/// Konflikte und ungültige Aufträge werden nie zurückgestellt.
 Future<CallToolResult> _schreibVorgang({
   required Map<String, dynamic> args,
   required String? aufruf,
   required Future<LokalerSpeicher> Function() oeffnen,
   required AppAnschluss app,
+  required Ausstand ausstand,
   required bool anhaengen,
 }) {
   return _ausfuehren(() async {
-    final pfad = _text(args, 'pfad');
-    final inhalt = _text(args, 'inhalt');
-    final zusammenfassung = _text(args, 'zusammenfassung');
-    final art = _art(args);
-    final version = _optionalerText(args, 'version');
-    if (zusammenfassung.trim().isEmpty) {
-      throw const KontextFehler(
-        "The summary is empty: pass a short German summary of the change in 'zusammenfassung'.",
-      );
-    }
-    if (zusammenfassung.length > 500) {
-      throw const KontextFehler(
-        'The summary is longer than 500 characters; shorten it and try again.',
-      );
-    }
-    final imWurzelordner = _imWurzelordner(pfad);
-    if (art == Art.rootFile && !imWurzelordner) {
-      throw const KontextFehler(
-        'root_file is only for a file directly in the context root; use new_file or another kind for a file in a folder.',
-      );
-    }
-    // Ein Journal wird nur angehängt. Die Bindung hängt am Pfad, nicht an der Art,
-    // die die KI nennt; `art: journal` außerhalb von journal/ ist ebenfalls abgewiesen.
-    if (!anhaengen && (istJournalPfad(pfad) || art == Art.journal)) {
-      throw KontextFehler(
-        "A journal is only appended, never replaced: use context_append for '$pfad'.",
-      );
-    }
+    final auftrag = _auftragAus(args, anhaengen: anhaengen);
 
-    final speicher = await oeffnen();
+    final LokalerSpeicher speicher;
+    try {
+      speicher = await oeffnen();
+    } on KontextNichtErreichbar catch (f) {
+      return _zurueckgestellt(auftrag, ausstand, f.meldung);
+    }
     // Vor der Frage prüfen: Ein Vorgang, der ohnehin scheitert, fragt nicht.
-    await speicher.pruefeStand(pfad, erwartet: version);
+    await speicher.pruefeStand(auftrag.pfad, erwartet: auftrag.version);
 
-    final ausgang = await app.freigabe(
-      aufruf: aufruf,
+    final ausgang = await frageFreigabe(
+      app,
+      aufruf,
+      auftrag,
       titel: anhaengen
           ? 'Im Kontextbereich ergänzen?'
           : 'Im Kontextbereich speichern?',
-      zusammenfassung:
-          'Datei: $pfad\nArt: ${art.bezeichnung}\n\n$zusammenfassung',
-      ab: freigabestufeFuer(art, imWurzelordner: imWurzelordner),
     );
     switch (ausgang) {
       case Freigabeausgang.freigegeben:
@@ -241,18 +266,84 @@ Future<CallToolResult> _schreibVorgang({
         );
     }
 
-    final geschrieben = anhaengen
-        ? await speicher.haengeAn(pfad, inhalt, erwartet: version)
-        : await speicher.schreibe(pfad, inhalt, erwartet: version);
+    // Nach der Freigabe noch einmal öffnen: Der Ort kann in der Wartezeit verschwunden sein.
+    final LokalerSpeicher offen;
+    try {
+      offen = await oeffnen();
+    } on KontextNichtErreichbar catch (f) {
+      return _zurueckgestellt(auftrag, ausstand, f.meldung);
+    }
+    final geschrieben = await schreibeAuftrag(offen, auftrag);
     if (!geschrieben.verifiziert) {
       throw KontextFehler(
-        "not verified: '$pfad' does not read back with the written content. Read it before going on.",
+        "not verified: '${auftrag.pfad}' does not read back with the written content. Read it before going on.",
       );
     }
     return 'verified\n'
-        'path: $pfad\n'
+        'path: ${auftrag.pfad}\n'
         'version: ${geschrieben.version}';
   });
+}
+
+/// Hält einen Auftrag im Ausstand, weil der Ort nicht antwortet. Die Antwort sagt
+/// deutlich, dass nichts im Kontextbereich steht, und dass er nicht noch einmal
+/// geschrieben werden soll.
+Future<String> _zurueckgestellt(
+  Schreibauftrag auftrag,
+  Ausstand ausstand,
+  String grund,
+) async {
+  final eintrag = await ausstand.merke(auftrag);
+  return 'not saved yet: the context area does not answer ($grund)\n'
+      'The write is kept as pending write ${eintrag.id}; nothing was written to the '
+      'context area. Do not write it again: context_start with "wiederholen": true '
+      'replays it once the location answers.\n'
+      'path: ${auftrag.pfad}';
+}
+
+/// Prüft die Argumente eines Schreibwerkzeugs und baut den Auftrag. Ungültiges
+/// wird hier abgewiesen, bevor etwas gespeichert oder gefragt wird.
+Schreibauftrag _auftragAus(
+  Map<String, dynamic> args, {
+  required bool anhaengen,
+}) {
+  final pfad = _text(args, 'pfad');
+  final inhalt = _text(args, 'inhalt');
+  final zusammenfassung = _text(args, 'zusammenfassung');
+  final art = _art(args);
+  final version = _optionalerText(args, 'version');
+  LokalerSpeicher.pruefeSchreibPfad(pfad);
+  if (zusammenfassung.trim().isEmpty) {
+    throw const KontextFehler(
+      "The summary is empty: pass a short German summary of the change in 'zusammenfassung'.",
+    );
+  }
+  if (zusammenfassung.length > 500) {
+    throw const KontextFehler(
+      'The summary is longer than 500 characters; shorten it and try again.',
+    );
+  }
+  final auftrag = Schreibauftrag(
+    pfad: pfad,
+    inhalt: inhalt,
+    art: art,
+    zusammenfassung: zusammenfassung,
+    version: version,
+    anhaengen: anhaengen,
+  );
+  if (art == Art.rootFile && !auftrag.imWurzelordner) {
+    throw const KontextFehler(
+      'root_file is only for a file directly in the context root; use new_file or another kind for a file in a folder.',
+    );
+  }
+  // Ein Journal wird nur angehängt. Die Bindung hängt am Pfad, nicht an der Art,
+  // die die KI nennt; `art: journal` außerhalb von journal/ ist ebenfalls abgewiesen.
+  if (!anhaengen && (istJournalPfad(pfad) || art == Art.journal)) {
+    throw KontextFehler(
+      "A journal is only appended, never replaced: use context_append for '$pfad'.",
+    );
+  }
+  return auftrag;
 }
 
 Art _art(Map<String, dynamic> args) {
@@ -265,10 +356,6 @@ Art _art(Map<String, dynamic> args) {
   }
   return art;
 }
-
-/// Ob der Pfad direkt am Wurzelordner liegt (ohne Ordner davor).
-bool _imWurzelordner(String pfad) =>
-    pfad.split('/').where((t) => t.isNotEmpty && t != '.').length == 1;
 
 /// Das Token des laufenden Aufrufs, das moocp in `_meta` mitgibt.
 String? _aufruf(RequestHandlerExtra extra) {

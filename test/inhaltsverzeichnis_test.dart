@@ -116,6 +116,59 @@ void main() {
       },
     );
 
+    test(
+      'ein Codeblock mit ``` schließt sich nur mit ``` und nicht mit ~~~',
+      () async {
+        final zeilen = langeDatei();
+        zeilen[30] = '```';
+        zeilen[31] = '~~~';
+        zeilen[32] = '## Kein Abschnitt';
+        zeilen[33] = '```';
+        await schreibe('plan.md', datei(zeilen));
+        final p = await laufendesPlugin();
+        final text = PluginProzess.text(
+          await p.werkzeug('context_read', {'pfad': 'plan.md'}),
+        );
+        expect(text, isNot(contains('Kein Abschnitt')));
+        expect(text, contains('## Woche 2: Vertiefung (lines 21-101)'));
+      },
+    );
+
+    test(
+      'ein Codeblock mit vier Backticks schließt sich nicht mit drei',
+      () async {
+        final zeilen = langeDatei();
+        zeilen[30] = '````';
+        zeilen[31] = '```';
+        zeilen[32] = '## Kein Abschnitt';
+        zeilen[33] = '````';
+        await schreibe('plan.md', datei(zeilen));
+        final p = await laufendesPlugin();
+        final text = PluginProzess.text(
+          await p.werkzeug('context_read', {'pfad': 'plan.md'}),
+        );
+        expect(text, isNot(contains('Kein Abschnitt')));
+        expect(text, contains('## Woche 2: Vertiefung (lines 21-101)'));
+      },
+    );
+
+    test(
+      'ein Codeblock, der nicht geschlossen wird, reicht bis zum Dateiende',
+      () async {
+        final zeilen = langeDatei();
+        zeilen[12] = '~~~';
+        zeilen[13] = '## Kein Abschnitt';
+        await schreibe('plan.md', datei(zeilen));
+        final p = await laufendesPlugin();
+        final text = PluginProzess.text(
+          await p.werkzeug('context_read', {'pfad': 'plan.md'}),
+        );
+        expect(text, isNot(contains('Kein Abschnitt')));
+        expect(text, isNot(contains('Woche 2')));
+        expect(text, contains('## Woche 1: Einstieg (lines 3-101)'));
+      },
+    );
+
     test('ein Abschnitt wird über seine Überschrift gelesen', () async {
       await schreibe('plan.md', datei(langeDatei()));
       final p = await laufendesPlugin();
@@ -164,6 +217,22 @@ void main() {
         expect(text, contains('Woche 1: Einstieg'));
         expect(text, contains('Montag'));
         expect(text, contains('Woche 2: Vertiefung'));
+      },
+    );
+
+    test(
+      'ein Abschnitt darf mit seiner Markierung angefordert werden („## Woche 2“)',
+      () async {
+        await schreibe('plan.md', datei(langeDatei()));
+        final p = await laufendesPlugin();
+        final ergebnis = await p.werkzeug('context_read', {
+          'pfad': 'plan.md',
+          'abschnitt': '## Woche 2: Vertiefung',
+        });
+        expect(ergebnis['isError'], isNot(true));
+        final text = PluginProzess.text(ergebnis);
+        expect(text, contains('section: ## Woche 2: Vertiefung'));
+        expect(text, contains('lines: 21-101'));
       },
     );
 

@@ -94,15 +94,19 @@ String leseAusschnitt(
 /// vortäuschen.
 List<_Abschnitt> _gliedere(List<String> zeilen) {
   final kopfe = <_Kopf>[];
-  var imCodeblock = false;
+  // Der Zaun, der den offenen Codeblock eröffnet hat (z. B. "````" oder "~~~").
+  String? offenerZaun;
   for (var i = 0; i < zeilen.length; i++) {
     final zeile = zeilen[i];
-    final beginn = zeile.trimLeft();
-    if (beginn.startsWith('```') || beginn.startsWith('~~~')) {
-      imCodeblock = !imCodeblock;
+    if (offenerZaun != null) {
+      if (_schliesstZaun(zeile, offenerZaun)) offenerZaun = null;
       continue;
     }
-    if (imCodeblock) continue;
+    final zaun = _zaunOeffnung.firstMatch(zeile);
+    if (zaun != null) {
+      offenerZaun = zaun.group(1);
+      continue;
+    }
     final m = _ueberschrift.firstMatch(zeile);
     if (m == null) continue;
     kopfe.add(
@@ -120,6 +124,19 @@ List<_Abschnitt> _gliedere(List<String> zeilen) {
   ];
 }
 
+/// Eröffnet eine Zeile einen Codeblock? Die Gruppe ist der Zaun, aus Backticks
+/// oder Tilden, mindestens drei Zeichen lang.
+final _zaunOeffnung = RegExp(r'^\s*(`{3,}|~{3,})');
+
+/// Schließt eine Zeile den Codeblock mit dem Zaun [offen]? Nur derselbe Zeichen-
+/// typ in mindestens gleicher Länge, sonst nichts außer Leerraum (CommonMark).
+bool _schliesstZaun(String zeile, String offen) {
+  final m = RegExp(r'^\s*(`{3,}|~{3,})\s*$').firstMatch(zeile);
+  if (m == null) return false;
+  final zaun = m.group(1)!;
+  return zaun[0] == offen[0] && zaun.length >= offen.length;
+}
+
 /// Die letzte Zeile des Abschnitts k: vor der nächsten Überschrift gleicher
 /// oder höherer Ebene, sonst am Dateiende.
 int _ende(List<_Kopf> kopfe, int k, int zeilenAnzahl) {
@@ -133,7 +150,7 @@ int _ende(List<_Kopf> kopfe, int k, int zeilenAnzahl) {
 /// mehrfache Leerzeichen zählen nicht. Eine Überschrift, die es zweimal gibt,
 /// ist ein Fehler, weil sich der Abschnitt dann nicht eindeutig bestimmen lässt.
 _Abschnitt _finde(String pfad, List<_Abschnitt> abschnitte, String gesucht) {
-  final wunsch = _norm(gesucht);
+  final wunsch = _norm(_ohneMarkierung(gesucht));
   final treffer = [
     for (final a in abschnitte)
       if (_norm(a.kopf.titel) == wunsch) a,
@@ -158,6 +175,13 @@ _Abschnitt _finde(String pfad, List<_Abschnitt> abschnitte, String gesucht) {
     "Pass one of them as 'abschnitt'.",
   );
 }
+
+/// Die Rauten am Anfang, die eine Überschrift in der Datei trägt. Die KI darf
+/// sie mit angeben („## Woche 2“); gesucht wird der Text dahinter.
+final _markierung = RegExp(r'^#{1,6}\s+');
+
+String _ohneMarkierung(String text) =>
+    text.trimLeft().replaceFirst(_markierung, '');
 
 String _norm(String text) =>
     text.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();

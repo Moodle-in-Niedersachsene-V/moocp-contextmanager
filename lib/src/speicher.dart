@@ -45,12 +45,16 @@ class LokalerSpeicher {
   /// Öffnet die Wurzel. Fehlt sie, ist das ein Fehler mit diesem Grund.
   static Future<LokalerSpeicher> oeffnen(String pfad) async {
     if (await FileSystemEntity.type(pfad) != FileSystemEntityType.directory) {
-      throw const KontextFehler('The context root folder does not exist.');
+      throw const KontextNichtErreichbar(
+        'The context root folder does not exist.',
+      );
     }
     try {
       return LokalerSpeicher._(await Directory(pfad).resolveSymbolicLinks());
     } on FileSystemException {
-      throw const KontextFehler('The context root folder cannot be read.');
+      throw const KontextNichtErreichbar(
+        'The context root folder cannot be read.',
+      );
     }
   }
 
@@ -191,8 +195,12 @@ class LokalerSpeicher {
     return _echt(kandidat);
   }
 
+  /// Prüft einen Schreibpfad allein am Text, ohne die Wurzel zu öffnen: Ein
+  /// Auftrag mit einem Pfad, der hinausführt, kommt nie in den Ausstand.
+  static void pruefeSchreibPfad(String relativ) => _schreibTeile(relativ);
+
   /// Der Pfad für einen Schreibvorgang: wie beim Lesen, dazu nur `.md`-Dateien.
-  List<String> _schreibTeile(String relativ) {
+  static List<String> _schreibTeile(String relativ) {
     final teile = _teile(relativ);
     if (teile.isEmpty || teile.last == '.md' || !teile.last.endsWith('.md')) {
       throw const KontextFehler(
@@ -204,7 +212,7 @@ class LokalerSpeicher {
 
   /// Die Bestandteile eines relativen Pfads. Absolute Pfade, `~` und `..`
   /// werden abgewiesen, bevor etwas auf der Platte geschieht.
-  List<String> _teile(String relativ) {
+  static List<String> _teile(String relativ) {
     // Steuerzeichen (auch Zeilenende und Tab) haben in einem Dateinamen nichts zu suchen.
     if (relativ.codeUnits.any((c) => c < 0x20 || c == 0x7f)) {
       throw const KontextFehler(

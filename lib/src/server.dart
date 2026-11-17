@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:mcp_dart/mcp_dart.dart';
+import 'package:path/path.dart' as p;
 
 import 'app.dart';
+import 'ausstand.dart';
 import 'einstellungen.dart';
 import 'schluessel.dart';
 import 'speicher.dart';
@@ -16,9 +18,16 @@ StreamableMcpServer kontextServer({
   required String schluessel,
   required File einstellungen,
 }) {
+  // Der Ausstand liegt neben der Einstellungsdatei, im Datenordner des Plugins.
+  final ausstand = Ausstand(
+    Directory(p.join(einstellungen.parent.path, 'ausstand')),
+  );
   return StreamableMcpServer(
-    serverFactory: (_) =>
-        _mcpServer(() => oeffneKontextbereich(einstellungen), schluessel),
+    serverFactory: (_) => _mcpServer(
+      () => oeffneKontextbereich(einstellungen),
+      schluessel,
+      ausstand,
+    ),
     host: '127.0.0.1',
     port: port,
     path: '/mcp',
@@ -34,6 +43,7 @@ StreamableMcpServer kontextServer({
 McpServer _mcpServer(
   Future<LokalerSpeicher> Function() oeffnen,
   String schluessel,
+  Ausstand ausstand,
 ) {
   final server = McpServer(
     const Implementation(name: 'context', version: '0.1.0'),
@@ -42,7 +52,7 @@ McpServer _mcpServer(
     adresse: () => _adresseDerApp(server),
     schluessel: schluessel,
   );
-  registriereWerkzeuge(server, oeffnen, app);
+  registriereWerkzeuge(server, oeffnen, app, ausstand);
   return server;
 }
 

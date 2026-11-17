@@ -9,3 +9,7 @@ Fachsprache dieses Projekts. Begriffe von moocp (Plugin, Instanzprofil, Freigabe
 **Abschnitt**: Eine Überschrift `##` oder `###` mit allem bis zur nächsten Überschrift gleicher oder höherer Ebene. Ein `##`-Abschnitt enthält seine `###`-Teile.
 
 **Wurzel**: Der eine Ordner, unter dem der ganze Kontextbereich liegt. Außerhalb liest und schreibt das Plugin nichts.
+
+**Ausstand**: Die Schreibvorgänge, die der Kontextbereich nicht annehmen konnte, weil der Ort nicht antwortete. Sie liegen im Datenordner des Plugins, nicht im Kontextbereich, und werden auf Anfrage mit `context_start` nachgetragen. _Vermeiden_: Warteschlange, Puffer.
+
+**Kontextlücke**: Der Zustand, in dem der Kontextbereich nicht gelesen werden kann. `context_start` nennt die Ursache. Planen im Chat bleibt erlaubt, aber ein gespeicherter Plan wird dann nicht aus dem Gedächtnis umgesetzt.
