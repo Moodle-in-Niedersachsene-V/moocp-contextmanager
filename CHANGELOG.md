@@ -19,3 +19,6 @@
 - Geändert: Eine Auflistung mit Namen, die einen Schrägstrich oder Steuerzeichen enthalten, wird abgewiesen, statt sie stillschweigend zu übergehen.
 - Geändert: Eine Antwort des WebDAV-Servers über 8 MiB wird abgebrochen, statt sie ganz zu laden.
 - Geändert: Ein Ausstand, dessen Ort sich nicht öffnen lässt, bleibt stehen und wird als Fehler genannt; die übrigen Einträge der Wiederholung bleiben vollständig gemeldet.
+- Neu: `context_archive` verschiebt Dateien eines Ordners nach `archive/` in diesem Ordner, etwa das alte Layout vor einem Umbau. Nichts wird gelöscht oder überschrieben; die Lehrkraft gibt die Verschiebung frei wie eine neue Datei.
+- Neu: Hat die Wurzel eines Kontextbereichs keine `index.md`, aber eine `CONTEXT.md` aus Coursepilot, liest `context_start` diese als Index. Die alten Dateien (`CONTEXT.md`, `status.md`, `journal-*.md`) lassen sich wie neue auflisten, lesen und anhängen.
+- Neu: Konfliktkopien von Sync-Clients (Syncthing, Nextcloud, Dropbox, Seafile) werden mit beiden Dateinamen gemeldet, unter der Liste von `context_list` und in der Antwort von `context_start`. Das Plugin ändert oder löscht sie nicht.

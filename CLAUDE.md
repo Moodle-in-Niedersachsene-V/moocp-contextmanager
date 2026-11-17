@@ -40,8 +40,10 @@ Git: Entwickelt wird auf GitHub (`Moodle-in-Niedersachsene-V/moocp-contextmanage
 - [E4 Schlüsselbund und Verbindung](docs/adr/0004-schluesselbund-und-verbindung.md): Das Passwort kommt nur aus dem Schlüsselbund über `secret-tool` bzw. `security`, nie aus einer Datei; fehlt es, ist das ein Fehler, kein Ersatz; die Adresse braucht `https` (`http` nur zu 127.0.0.1, ::1, localhost), ohne Zugangsdaten; Weiterleitungen werden nicht gefolgt.
 
 - [E5 Wegweiser im Materialordner](docs/adr/0005-wegweiser-im-materialordner.md): `context_link` schreibt nur `CONTEXT-LINK.md` in einen per Ordnerdialog gewählten Ordner (einzige Ausnahme zu A2), Freigabe auf jeder Stufe, jeder Eintrag zeigt auf einen vorhandenen Pfad unter der Wurzel, die Wurzel steht nie in der Datei, fremde Dateien werden nicht überschrieben.
+- [E6 Altes Layout lesen und archivieren](docs/adr/0006-altes-layout-und-archiv.md): Altes Layout ist lesbar, `CONTEXT.md` ist Index, wenn `index.md` fehlt; `context_archive` verschiebt nur direkte Dateien eines Ordners nach `archive/` (nie löschen, nie überschreiben, Journale nie, Freigabe auf Stufe „alle“, kein Ausstand).
+- [E7 Konfliktkopien melden](docs/adr/0007-konfliktkopien-melden.md): Konfliktkopien von Sync-Clients werden an ihrem Namen erkannt und mit beiden Dateinamen gemeldet, nie verändert; `context_start` sucht im ganzen Kontextbereich, begrenzt auf 500 Ordner und 10 Ebenen.
 
-Neue Entscheidungen bekommen die nächste freie Nummer (`0006-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
+Neue Entscheidungen bekommen die nächste freie Nummer (`0008-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
 
 ## Arbeitsregeln für die KI
 

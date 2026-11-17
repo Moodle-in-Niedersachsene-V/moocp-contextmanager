@@ -1,10 +1,12 @@
 import 'package:mcp_dart/mcp_dart.dart';
 
 import 'app.dart';
+import 'archiv.dart';
 import 'art.dart';
 import 'ausstand.dart';
 import 'fehler.dart';
 import 'inhaltsverzeichnis.dart';
+import 'konflikt.dart';
 import 'ort.dart';
 import 'pfad.dart';
 import 'schreibauftrag.dart';
@@ -47,10 +49,19 @@ void registriereWerkzeuge(
         final pfad = _optionalerText(args, 'pfad') ?? '';
         final speicher = await zugang.oeffnen();
         final eintraege = await speicher.liste(pfad);
-        if (eintraege.isEmpty) return 'The folder is empty.';
-        return eintraege
-            .map((e) => e.istOrdner ? '${e.name}/' : e.name)
-            .join('\n');
+        final liste = eintraege.isEmpty
+            ? 'The folder is empty.'
+            : eintraege
+                  .map((e) => e.istOrdner ? '${e.name}/' : e.name)
+                  .join('\n');
+        // Konfliktkopien des Ordners (Spec #74) stehen unter der Liste; nur
+        // dieser Ordner, Unterordner meldet context_start.
+        final kopien = konfliktkopienIn(pfadTeile(pfad).join('/'), eintraege);
+        if (kopien.isEmpty) return liste;
+        return '$liste\n\n'
+            'conflict copies: a sync client made these; compare each pair and keep one. '
+            'The plugin deletes nothing.\n'
+            '${konfliktZeilen(kopien, vollerPfad: false).join('\n')}';
       });
     },
   );
@@ -214,11 +225,59 @@ void registriereWerkzeuge(
   );
 
   server.registerTool(
+    'context_archive',
+    description:
+        'Moves Markdown files of one folder of the teacher\'s context area into the folder '
+        'archive/ inside it, for example the files of the old layout before a unit is restructured. '
+        'Pass the folder ("ordner", empty for the root) and the file names directly inside it ("dateien"). '
+        'Nothing is deleted or overwritten: if a target already exists, nothing is moved. Journals are never '
+        'moved. The teacher is asked for approval like for a new file. If the context area does not answer, '
+        'nothing is moved and nothing is kept as a pending write; repeat the call later. Paths that leave the '
+        'context area are refused.',
+    inputSchema: JsonSchema.object(
+      properties: {
+        'ordner': JsonSchema.string(
+          description: 'Folder relative to the context area, for example "klassen/7b/mathe"; empty for the root.',
+        ),
+        'dateien': JsonSchema.array(
+          minItems: 1,
+          description: 'File names directly inside the folder, for example ["plan.md", "status.md"].',
+          items: JsonSchema.string(),
+        ),
+        'zusammenfassung': JsonSchema.string(
+          description: 'A short summary in German for the approval dialog of the teacher.',
+          maxLength: 500,
+        ),
+      },
+      required: ['ordner', 'dateien', 'zusammenfassung'],
+    ),
+    annotations: const ToolAnnotations(
+      title: 'Archive context files',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    ),
+    callback: (args, extra) async {
+      return _ausfuehren(() async {
+        return archiviere(
+          zugang: zugang,
+          app: app,
+          aufruf: _aufruf(extra),
+          ordner: _text(args, 'ordner'),
+          dateien: _textListe(args, 'dateien'),
+          zusammenfassung: _text(args, 'zusammenfassung'),
+        );
+      });
+    },
+  );
+
+  server.registerTool(
     'context_start',
     description:
         'Call this first in every session. In one answer it returns whether the context '
         'area answers (or the context gap and its cause), the pending writes that are not '
-        'yet saved, the root index.md and the root habits.md. Pass "wiederholen": true to '
+        'yet saved, the conflict copies of sync clients with both file names, the root index.md '
+        '(CONTEXT.md of the old layout when index.md is missing) and the root habits.md. Pass "wiederholen": true to '
         'replay the pending writes now: each one is checked for changes like a new write '
         'and approved by the teacher again before it is written. A changed target is reported '
         'and never overwritten. Pending writes are not context: read the context area for '
@@ -442,6 +501,15 @@ List<WegweiserEintrag> _wegweiserEintraege(Map<String, dynamic> args) {
         );
       }(),
   ];
+}
+
+/// Eine Liste von Texten als Argument; fehlt sie oder ist sie anders, ist das ein Fehler.
+List<String> _textListe(Map<String, dynamic> args, String name) {
+  final wert = args[name];
+  if (wert is! List || wert.any((e) => e is! String)) {
+    throw KontextFehler("The argument '$name' must be a list of text.");
+  }
+  return wert.cast<String>();
 }
 
 /// Das Token des laufenden Aufrufs, das moocp in `_meta` mitgibt.
