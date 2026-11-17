@@ -1,6 +1,6 @@
 // Die Einrichtung des Kontextbereichs aus dem Einstellungsfenster (E8): Eingabe
 // prüfen, Verbindung prüfen, speichern, und die Meldungen auf Deutsch. Die
-// Oberfläche liegt im Ordner `einstellungsfenster/` und benutzt nur diese Datei.
+// Oberfläche liegt im Ordner `fenster/` und benutzt nur diese Datei.
 
 import 'dart:io';
 
@@ -173,7 +173,8 @@ class Speicherergebnis {
 /// Speichert die Eingabe (E8): erst prüfen, dann das Passwort in den
 /// Schlüsselbund, dann die Einstellungsdatei. Scheitert der Schlüsselbund, bleibt
 /// die Datei, wie sie war, und die Datei zeigt nie auf ein Passwort, das fehlt.
-/// Ein leeres Passwort lässt den Schlüsselbund unberührt.
+/// Ein leeres Passwort lässt den Schlüsselbund unberührt, verlangt aber, dass
+/// das Konto dort schon einen Eintrag hat.
 Future<Speicherergebnis> speichereEinrichtung(
   Einrichtung e, {
   required File datei,
@@ -187,8 +188,15 @@ Future<Speicherergebnis> speichereEinrichtung(
   }
   final eingetragen = e.passwort;
   try {
-    if (einstellungen.art == 'webdav' && eingetragen != null && eingetragen.isNotEmpty) {
-      await schluesselbund.speichere(einstellungen.konto, eingetragen);
+    if (einstellungen.art == 'webdav') {
+      if (eingetragen != null && eingetragen.isNotEmpty) {
+        await schluesselbund.speichere(einstellungen.konto, eingetragen);
+      } else {
+        // Ohne neues Passwort muss das Konto (das bei geänderter Adresse oder
+        // Benutzer ein neues ist) schon einen Eintrag haben, sonst zeigte die
+        // Datei auf ein fehlendes Passwort (E8).
+        await schluesselbund.geheimnis(einstellungen.konto);
+      }
     }
     await schreibeEinstellungen(datei, einstellungen);
   } on KontextFehler catch (f) {
@@ -206,6 +214,10 @@ Future<Speicherergebnis> speichereEinrichtung(
 }
 
 const _meldungen = <(String, String)>[
+  (
+    'contains control characters',
+    'Das Passwort oder der Benutzer enthält einen Zeilenumbruch oder ein Steuerzeichen. Bitte entfernen.',
+  ),
   (
     'could not be stored',
     'Das Passwort konnte nicht im Schlüsselbund gespeichert werden. Nichts wurde geschrieben.',

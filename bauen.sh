@@ -20,10 +20,13 @@ DART="${DART:-dart}"
 FLUTTER="${FLUTTER:-flutter}"
 
 # Das Einstellungsfenster gibt es bisher nur für Linux (fenster/linux). Auf dem
-# Mac fehlt fenster/macos; das Skript sagt es, statt ein Plugin ohne Fenster zu bauen.
-if [[ "$(uname -s)" != Linux ]]; then
-  echo 'Das Einstellungsfenster ist nur für Linux eingerichtet (fenster/macos fehlt). Nichts wurde gebaut.' >&2
-  exit 2
+# Mac fehlt fenster/macos: Dort wird das Plugin ohne Fenster gebaut, und das
+# Skript sagt es. BAUEN_SYSTEM überschreibt das System (nur zum Prüfen des Zweigs).
+SYSTEM="${BAUEN_SYSTEM:-$(uname -s)}"
+FENSTER_BAUEN=1
+if [[ "$SYSTEM" != Linux ]]; then
+  FENSTER_BAUEN=0
+  echo 'WARNUNG: Das Einstellungsfenster gibt es auf diesem System noch nicht (fenster/macos fehlt). Das Plugin wird ohne Fenster gebaut; die Einrichtung ist dann nur von Hand möglich.' >&2
 fi
 
 # Ohne jq: der Text hinter "programm" in plugin.json.
@@ -49,16 +52,22 @@ cd "$ORDNER"
 "$DART" compile exe bin/context.dart -o "$ZIEL/$PROGRAMM.neu"
 # Das Einstellungsfenster als Bündel (Programm samt lib/ und data/), wie
 # flutter es baut; das Plugin startet das Programm darin (standardFensterProgramm).
-(cd "$ORDNER/fenster" && "$FLUTTER" build linux --release)
-FENSTER_BUENDEL="$ORDNER/fenster/build/linux/x64/release/bundle"
-if [[ ! -x "$FENSTER_BUENDEL/kontext_einstellungen" ]]; then
-  echo "Das Einstellungsfenster fehlt nach dem Bauen: $FENSTER_BUENDEL" >&2
-  rm -f "$ZIEL/$PROGRAMM.neu"
-  exit 1
+if [[ "$FENSTER_BAUEN" == 1 ]]; then
+  (cd "$ORDNER/fenster" && "$FLUTTER" build linux --release)
+  FENSTER_BUENDEL="$ORDNER/fenster/build/linux/x64/release/bundle"
+  if [[ ! -x "$FENSTER_BUENDEL/kontext_einstellungen" ]]; then
+    echo "Das Einstellungsfenster fehlt nach dem Bauen: $FENSTER_BUENDEL" >&2
+    rm -f "$ZIEL/$PROGRAMM.neu"
+    exit 1
+  fi
 fi
-rm -rf "$ZIEL/$PROGRAMM" "$ZIEL/einstellungsfenster"
+rm -rf "$ZIEL/$PROGRAMM"
 mv "$ZIEL/$PROGRAMM.neu" "$ZIEL/$PROGRAMM"
-cp -R "$FENSTER_BUENDEL" "$ZIEL/einstellungsfenster"
+# Ein altes Fenster im Zielordner passt zu keinem neuen Stand: weg damit.
+rm -rf "$ZIEL/einstellungsfenster"
+if [[ "$FENSTER_BAUEN" == 1 ]]; then
+  cp -R "$FENSTER_BUENDEL" "$ZIEL/einstellungsfenster"
+fi
 cp plugin.json "$ZIEL/plugin.json"
 if [[ -d skills ]]; then
   rm -rf "$ZIEL/skills"

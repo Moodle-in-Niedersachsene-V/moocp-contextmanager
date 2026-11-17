@@ -16,8 +16,9 @@ abstract class Schluesselbund {
 }
 
 /// Der Schlüsselbund des Betriebssystems über dessen Werkzeuge: `secret-tool`
-/// (Linux, libsecret) und `security` (macOS). Das Passwort kommt auf der
-/// Standardausgabe; es steht nie in einer Kommandozeile und nie in einer Meldung.
+/// (Linux, libsecret) und `security` (macOS). Beim Lesen kommt das Passwort auf
+/// der Standardausgabe des Werkzeugs, beim Speichern geht es über dessen
+/// Standardeingabe. Es steht nie in einer Kommandozeile und nie in einer Meldung.
 class SystemSchluesselbund implements Schluesselbund {
   SystemSchluesselbund({
     String? werkzeug,
@@ -79,8 +80,17 @@ class SystemSchluesselbund implements Schluesselbund {
     return geheimnis;
   }
 
+  /// Steuerzeichen (auch Zeilenende) im Passwort oder Konto würden das
+  /// Werkzeug und seinen Befehl zerbrechen; sie werden vor dem Start abgewiesen.
+  static final _steuerzeichen = RegExp(r'[\x00-\x1f\x7f]');
+
   @override
   Future<void> speichere(String konto, String geheimnis) async {
+    if (_steuerzeichen.hasMatch(konto) || _steuerzeichen.hasMatch(geheimnis)) {
+      throw const KontextFehler(
+        'The password or account contains control characters (such as a line break); nothing was stored.',
+      );
+    }
     final String programm;
     final List<String> argumente;
     if (Platform.isMacOS) {

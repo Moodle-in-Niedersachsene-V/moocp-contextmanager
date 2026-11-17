@@ -339,6 +339,15 @@ class _DefektSchluesselbund extends _SpeicherSchluesselbund {
       );
 }
 
+/// Ein Schlüsselbund, der die Meldung des echten Speicherns zu Steuerzeichen wirft.
+class _ZeilenSchluesselbund extends _SpeicherSchluesselbund {
+  @override
+  Future<void> speichere(String konto, String geheimnis) async =>
+      throw const KontextFehler(
+        'The password or account contains control characters (such as a line break); nothing was stored.',
+      );
+}
+
 void _speichern() {
   group('Speichern', () {
     late Directory ordner;
@@ -415,6 +424,64 @@ void _speichern() {
       expect(ergebnis.gespeichert, isTrue);
       expect(sb.geschrieben, isEmpty);
       expect(datei.existsSync(), isTrue);
+    });
+
+    test('ein Passwort mit Zeilenende wird auf Deutsch abgewiesen', () async {
+      final ergebnis = await speichereEinrichtung(
+        Einrichtung(
+          art: 'webdav',
+          adresse: 'https://cloud.example.org/dav/',
+          benutzer: 'name',
+          passwort: 'geheim\nzweite',
+        ),
+        datei: datei,
+        schluesselbund: _ZeilenSchluesselbund(),
+      );
+
+      expect(ergebnis.gespeichert, isFalse);
+      expect(
+        ergebnis.meldung,
+        'Das Passwort oder der Benutzer enthält einen Zeilenumbruch oder ein Steuerzeichen. Bitte entfernen.',
+      );
+      expect(datei.existsSync(), isFalse);
+    });
+
+    test('leeres Passwort bei geändertem Konto: ohne Eintrag für das neue Konto wird nichts geschrieben', () async {
+      await datei.writeAsString('{"art":"lokal","pfad":"/alt"}');
+      // Der Eintrag gehört zum alten Konto; die neue Adresse hat keinen.
+      final sb = _SpeicherSchluesselbund({'name@https://alt.example.org/dav/': 'alt'});
+
+      final ergebnis = await speichereEinrichtung(
+        Einrichtung(
+          art: 'webdav',
+          adresse: 'https://neu.example.org/dav/',
+          benutzer: 'name',
+        ),
+        datei: datei,
+        schluesselbund: sb,
+      );
+
+      expect(ergebnis.gespeichert, isFalse);
+      expect(ergebnis.meldung, 'Im Schlüsselbund ist kein Passwort zu diesem Konto. Bitte eintragen.');
+      expect(datei.readAsStringSync(), '{"art":"lokal","pfad":"/alt"}');
+      expect(sb.geschrieben, isEmpty);
+    });
+
+    test('leeres Passwort bei geändertem Konto mit Eintrag für das neue Konto wird gespeichert', () async {
+      final sb = _SpeicherSchluesselbund({'name@https://neu.example.org/dav/': 'neu'});
+
+      final ergebnis = await speichereEinrichtung(
+        Einrichtung(
+          art: 'webdav',
+          adresse: 'https://neu.example.org/dav/',
+          benutzer: 'name',
+        ),
+        datei: datei,
+        schluesselbund: sb,
+      );
+
+      expect(ergebnis.gespeichert, isTrue);
+      expect(jsonDecode(datei.readAsStringSync())['adresse'], 'https://neu.example.org/dav/');
     });
 
     test('lokal: nur die Datei, der Schlüsselbund wird nicht angefasst', () async {

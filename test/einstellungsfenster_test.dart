@@ -72,6 +72,18 @@ void main() {
     expect(gestartet, hasLength(1));
   });
 
+  test('zwei gleichzeitige Aufrufe öffnen nur ein Fenster', () async {
+    final f = fenster();
+
+    final ergebnisse = await Future.wait([f.oeffnen(), f.oeffnen()]);
+
+    expect(gestartet, hasLength(1));
+    expect(
+      ergebnisse.map((e) => e.stand),
+      unorderedEquals([FensterStand.geoeffnet, FensterStand.lauft]),
+    );
+  });
+
   test('beim Ausfall öffnet es nur einmal, bis der Ort wieder antwortet', () async {
     final f = fenster();
 

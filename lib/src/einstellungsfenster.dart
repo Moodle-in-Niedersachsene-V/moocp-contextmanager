@@ -30,6 +30,9 @@ class Einstellungsfenster {
   /// wieder antwortet, gilt der nächste Ausfall als neuer.
   bool _ausfallOffen = false;
 
+  /// Ob gerade ein Start läuft (zwischen Aufruf und Rückkehr des Startens).
+  bool _startet = false;
+
   /// Auf Wunsch (`context_settings`): öffnet das Fenster, wenn es nicht offen ist.
   Future<FensterErgebnis> oeffnen() async {
     if (_prozess != null) {
@@ -52,18 +55,23 @@ class Einstellungsfenster {
   }
 
   Future<FensterErgebnis> _start() async {
-    if (_prozess != null) {
+    if (_prozess != null || _startet) {
       return const FensterErgebnis(FensterStand.lauft, 'The settings window is already open.');
     }
+    // Gesetzt, bevor das Programm startet: Ein zweiter Aufruf, der während des
+    // Wartens hier ankommt, startet kein zweites Fenster.
+    _startet = true;
     final Process prozess;
     try {
       prozess = await _starten(programm, ['--einstellungen', einstellungen.path]);
     } on ProcessException {
+      _startet = false;
       return const FensterErgebnis(
         FensterStand.nichtGestartet,
         'The settings window could not be started. Ask the teacher to open it from the plugin folder.',
       );
     }
+    _startet = false;
     _prozess = prozess;
     // Die Ausgabe des Fensters wird verworfen, damit der Puffer nicht volläuft.
     prozess.stdout.drain<void>();

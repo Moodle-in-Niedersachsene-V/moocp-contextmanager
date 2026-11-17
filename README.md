@@ -283,3 +283,5 @@ Port `entwicklungsPort` aus `plugin.json` mit `--entwicklung` und startet moocp
 mit `--plugin-entwicklung`. Das Plugin läuft dann, bis der Entwickler es beendet.
 Das Einstellungsfenster öffnet es aus `build/context/einstellungsfenster`, wenn
 `bauen.sh` das schon getan hat.
+Auf dem Mac baut `bauen.sh` das Plugin ohne Einstellungsfenster und warnt dabei:
+für den Mac fehlt noch `fenster/macos`.

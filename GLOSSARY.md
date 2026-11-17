@@ -19,3 +19,5 @@ Fachsprache dieses Projekts. Begriffe von moocp (Plugin, Instanzprofil, Freigabe
 **Konfliktkopie**: Die Datei, die ein Sync-Client anlegt, wenn zwei Geräte dieselbe Datei gleichzeitig ändern (etwa `plan (Conflicted copy).md`). Das Plugin meldet sie mit dem Namen des Originals und ändert sie nicht.
 
 **Altes Layout**: Die Dateien aus Coursepilot (`CONTEXT.md` als Index, `status.md`, `journal-*.md`). Sie bleiben lesbar; neue Schreibvorgänge nutzen das neue Layout.
+
+**Einstellungsfenster**: Das eigene Fenster (Programm `kontext_einstellungen` aus `fenster/`), in dem die Lehrkraft Ort und Passwort des Kontextbereichs einträgt und die Verbindung prüft. Es öffnet sich beim ersten Start ohne Einstellungen, einmal je Ausfall des Ortes und auf Wunsch der KI (`context_settings`), die dabei keine Werte sieht. _Vermeiden_: Konfigurationsdialog, Einstellungsmaske.
