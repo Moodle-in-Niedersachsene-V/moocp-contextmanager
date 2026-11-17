@@ -43,7 +43,9 @@ Git: Entwickelt wird auf GitHub (`Moodle-in-Niedersachsene-V/moocp-contextmanage
 
 - [E9 Version ohne starkes ETag](docs/adr/0009-version-ohne-etag.md): Ohne starkes ETag (keines oder `W/`) ist die Version `sha256:<Prüfsumme der gelesenen Bytes>`; vor dem `PUT` bzw. `MOVE` liest das Plugin noch einmal und vergleicht, dann ohne `If-Match`; das Wettlauffenster bleibt offen, und jede solche Schreib- oder Verschiebeantwort trägt die Zeile `check: not enforced by the server …` (nie behaupten, der Server habe die Bedingung durchgesetzt); `verified` bleibt „zurückgelesen“; Server mit starkem ETag behalten `If-Match` und tragen die Zeile nicht.
 
-Neue Entscheidungen bekommen die nächste freie Nummer (`0010-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
+- [E10 Verweise nach dem Archivieren](docs/adr/0010-verweise-nach-dem-archivieren.md): `context_archive` sucht nach dem Verschieben in `index.md`/`CONTEXT.md` der Ebene, aller Ebenen darüber und darunter (ohne `archive/`) nach Verweisen auf verschobene Dateien (Markdown-Link, Backtick, Wort; relativ zur Ebene oder zur Wurzel) und nennt jede Stelle mit Datei und Zeile; die Suche liest nur, schreibt nie und ist begrenzt (Tiefe 10, 300 Ordner, 100 Indexdateien, 1 MiB je Datei, 8 s); jede Grenze, jeder Ausfall und jeder Zeitablauf steht als `INCOMPLETE` in der Antwort, nie als „nichts gefunden“; die KI korrigiert die Verweise im selben Schritt mit Freigabe (`plan_change`).
+
+Neue Entscheidungen bekommen die nächste freie Nummer (`0011-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
 
 ## Arbeitsregeln für die KI
 

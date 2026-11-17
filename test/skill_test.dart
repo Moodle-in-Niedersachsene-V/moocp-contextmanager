@@ -107,6 +107,15 @@ void main() {
           reason: 'unbekannt: ${genannt.difference(werkzeuge)}');
     });
 
+    test('der Skill verlangt, Verweise nach context_archive im selben Schritt zu korrigieren', () {
+      final text = _skillText();
+      expect(text, contains('`references:`'));
+      expect(text, contains('same step'));
+      expect(text, contains('`plan_change`'));
+      expect(text, contains('`INCOMPLETE`'));
+      expect(text, contains('never rewrites an index by itself'));
+    });
+
     test('jede Art in Backticks in den Dateien des Skills ist ein Wert der Art-Liste', () {
       final gueltig = Art.values.map((a) => a.wert).toSet();
       final genannt = _genannteArten(_skillTextAlle());
@@ -126,6 +135,8 @@ void main() {
         'not saved yet',
         'context gap',
         'conflict copies',
+        'references:',
+        'INCOMPLETE',
       ]) {
         expect(quelle, contains(phrase), reason: phrase);
       }
