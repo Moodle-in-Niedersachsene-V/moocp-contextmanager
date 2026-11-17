@@ -104,14 +104,14 @@ Struktur schreibt. Journale bleiben beim Umbau an ihrem Platz, weil sie nie vers
 
 Ändert ein Sync-Client dieselbe Datei an zwei Geräten gleichzeitig, legt er eine
 Konfliktkopie an. Das Plugin erkennt die Namen von Syncthing
-(`name.sync-conflict-…`), Nextcloud (`name_conflict-…`), Dropbox und älteren
+(`name.sync-conflict-…`), Nextcloud (`name_conflict-…`), Dropbox und neuere
 Nextcloud-Versionen (`name (conflicted copy …)`) und Seafile (`name (SFConflict …)`).
 Jede Meldung nennt beide Dateinamen. Ob das Original fehlt, sagt die Meldung auch.
 
 Das Plugin löscht und verändert nichts. Die Lehrkraft vergleicht die beiden
 Fassungen und behält eine. `context_start` sucht im ganzen Kontextbereich, bis
-500 Ordner und 10 Ebenen tief; was darüber liegt, wird nicht geprüft, und die
-Antwort sagt es. Andere Namensmuster, etwa deutsche Dropbox-Bezeichnungen,
+500 Ordner und 10 Ebenen tief und bricht nach 20 Sekunden ab; was danach liegt,
+wird nicht geprüft, und die Antwort sagt „not fully checked“. Andere Namensmuster, etwa deutsche Dropbox-Bezeichnungen,
 erkennt das Plugin nicht.
 
 ### Archivieren

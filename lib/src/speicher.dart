@@ -67,8 +67,15 @@ abstract class Kontextspeicher {
     required String? erwartet,
   });
 
-  /// Verschiebt eine Datei innerhalb der Wurzel. Das Ziel darf nicht existieren.
-  Future<void> verschiebeDatei(String von, String nach);
+  /// Verschiebt eine Datei innerhalb der Wurzel, nur wenn ihr Stand noch [erwartet]
+  /// ist. Ein vorhandenes Ziel wird nie ersetzt: Dann wirft es [KontextKonflikt]
+  /// und lässt beide Namen, wie sie waren. Die Prüfung am Ort geschieht im selben
+  /// Schritt wie das Verschieben, nicht davor (siehe ADR 0006).
+  Future<void> verschiebeDatei(
+    String von,
+    String nach, {
+    required String erwartet,
+  });
 
   /// Ob ein Eintrag (Datei oder Ordner) unter der Wurzel existiert; die Wurzel
   /// selbst existiert. Ein fehlender Elternordner oder ein Pfad, der hinausführt,
@@ -183,7 +190,7 @@ abstract class Kontextspeicher {
         "'$nach' already exists; nothing was moved. Choose another path.",
       );
     }
-    await verschiebeDatei(von, nach);
+    await verschiebeDatei(von, nach, erwartet: erwartet);
   }
 
   Future<Geschrieben> _speichern(
@@ -300,17 +307,64 @@ class LokalerSpeicher extends Kontextspeicher {
     }
   }
 
+  /// Verschiebt ohne Überschreiben: Zuerst bekommt das Ziel einen zweiten Namen
+  /// für dieselbe Datei (`ln` ohne `-f`; `link(2)` scheitert atomar, wenn der
+  /// Name schon existiert). Danach wird der Stand des Inhalts unter dem neuen
+  /// Namen geprüft; passt er nicht, wird nur der neue Name entfernt. Erst dann
+  /// verschwindet der alte Name. Gibt es keine harten Verknüpfungen, scheitert
+  /// es mit Grund; es wird dann nichts verschoben und nichts überschrieben.
   @override
-  Future<void> verschiebeDatei(String von, String nach) async {
+  Future<void> verschiebeDatei(
+    String von,
+    String nach, {
+    required String erwartet,
+  }) async {
     final quelle = await _zielDatei(pfadTeile(von));
     if (quelle == null) {
       throw KontextFehler("'$von' does not exist in the context area.");
     }
     final ziel = await _anlegen(pfadTeile(nach));
+    final ergebnis = await Process.run('ln', ['--', quelle, ziel]);
+    if (ergebnis.exitCode != 0) {
+      if (await FileSystemEntity.type(ziel, followLinks: false) !=
+          FileSystemEntityType.notFound) {
+        throw KontextKonflikt(
+          "'$nach' already exists; nothing was moved. Choose another path.",
+        );
+      }
+      throw KontextFehler(
+        "'$von' cannot be moved to '$nach' without overwriting: hard links are not available here. Nothing was moved.",
+      );
+    }
+    final List<int> bytes;
     try {
-      await File(quelle).rename(ziel);
+      bytes = await File(ziel).readAsBytes();
     } on FileSystemException {
-      throw KontextFehler("'$von' cannot be moved to '$nach'.");
+      await _entferneNamen(ziel);
+      throw KontextFehler("'$von' cannot be read after the move; nothing was moved.");
+    }
+    if (_version(bytes) != erwartet) {
+      await _entferneNamen(ziel);
+      throw KontextKonflikt(
+        "'$von' changed since it was read. Read it again and check the change before moving.",
+      );
+    }
+    try {
+      await File(quelle).delete();
+    } on FileSystemException {
+      throw KontextFehler(
+        "'$von' was copied to '$nach', but the original could not be removed. Both names exist; nothing was overwritten.",
+      );
+    }
+  }
+
+  /// Entfernt einen Namen, den dieser Aufruf selbst angelegt hat. Die Datei
+  /// dahinter bleibt, weil die Quelle sie noch hält.
+  static Future<void> _entferneNamen(String pfad) async {
+    try {
+      await File(pfad).delete();
+    } on FileSystemException {
+      // Der Name bleibt bestehen; die Antwort nennt den Fehler trotzdem.
     }
   }
 

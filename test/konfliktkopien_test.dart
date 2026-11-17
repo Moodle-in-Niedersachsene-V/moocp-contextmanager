@@ -7,6 +7,9 @@ import 'dart:io';
 import 'package:path/path.dart' as pfad;
 import 'package:test/test.dart';
 
+import 'package:contextmanager/src/konflikt.dart';
+import 'package:contextmanager/src/speicher.dart';
+
 import 'harness.dart';
 
 void main() => fuerJedenOrt(_tests);
@@ -96,6 +99,43 @@ void _tests(Ortsart art) {
       expect(text, contains('SFConflict'));
     });
 
+    test('Syncthing-Kopie ohne Gerätekennung wird erkannt', () async {
+      await schreibe('notizen.md', 'Original\n');
+      await schreibe('notizen.sync-conflict-20261117-143000.md', 'Kopie\n');
+      final p = await laufendesPlugin();
+      final text = PluginProzess.text(
+        await p.werkzeug('context_list', {'pfad': ''}),
+      );
+      expect(
+        text,
+        contains("'notizen.sync-conflict-20261117-143000.md' is a conflict copy of 'notizen.md'"),
+      );
+    });
+
+    test('Nextcloud-Kopie mit Benutzer im Namen wird erkannt', () async {
+      await schreibe('wochen.md', 'Original\n');
+      await schreibe('wochen_conflict-nutzer-20261117-143000.md', 'Kopie\n');
+      final p = await laufendesPlugin();
+      final text = PluginProzess.text(
+        await p.werkzeug('context_list', {'pfad': ''}),
+      );
+      expect(
+        text,
+        contains("'wochen_conflict-nutzer-20261117-143000.md' is a conflict copy of 'wochen.md'"),
+      );
+    });
+
+    test('„conflicted copy“ mit Benutzer und Zeit (neuere Form) wird erkannt', () async {
+      await schreibe('plan.md', 'Original\n');
+      await schreibe('plan (conflicted copy nutzer 2026-11-17 143000).md', 'Kopie\n');
+      final p = await laufendesPlugin();
+      final text = PluginProzess.text(
+        await p.werkzeug('context_list', {'pfad': ''}),
+      );
+      expect(text, contains("'plan.md'"));
+      expect(text, contains('conflicted copy nutzer 2026-11-17 143000'));
+    });
+
     test('gewöhnliche Namen ohne Muster werden nicht gemeldet', () async {
       await schreibe('plan (1).md', 'x\n');
       await schreibe('conflict.md', 'x\n');
@@ -108,6 +148,19 @@ void _tests(Ortsart art) {
       expect(text, contains('plan (1).md'));
     });
   });
+
+  if (art == Ortsart.lokal) {
+    // Die Zeitgrenze lässt sich am MCP-Seam nicht verkürzen; sie wird am Modul
+    // geprüft, mit einer Grenze von null Sekunden.
+    test('läuft die Zeitgrenze ab, ist die Suche als unvollständig gekennzeichnet', () async {
+      await schreibe('plan.md', 'Original\n');
+      await schreibe('plan (Conflicted copy).md', 'Kopie\n');
+      final speicher = await LokalerSpeicher.oeffnen(root);
+      final suche = await sucheKonfliktkopien(speicher, zeitlimit: Duration.zero);
+      expect(suche.zeitlimitErreicht, isTrue);
+      expect(suche.funde, isEmpty);
+    });
+  }
 
   group('context_start meldet Konfliktkopien im ganzen Kontextbereich', () {
     test('eine Kopie in einem Unterordner wird gefunden und beide Namen genannt', () async {

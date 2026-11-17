@@ -4,13 +4,13 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). 
 
 ## Entscheidung
 
-**Altes Layout ohne Umbau lesbar.** Auflisten, Lesen und Anhängen funktionieren für `CONTEXT.md`, `status.md` und `journal-*.md` wie für neue Dateien; das war schon so, der Test sichert es ab. Ein Journal `journal-*.md` bleibt nur anhängbar (E1).
+**Altes Layout ohne Umbau lesbar.** Auflisten, Lesen und Anhängen funktionieren für `CONTEXT.md`, `status.md` und `journal-*.md` wie für neue Dateien. Ein Journal `journal-*.md` bleibt nur anhängbar (E1).
 
 **Index aus `CONTEXT.md`.** `context_start` liest `index.md` der Wurzel. Fehlt sie und gibt es `CONTEXT.md`, liest es diese als Index; die Überschrift sagt es (`--- CONTEXT.md (old layout: …) ---`). Gibt es beide, gewinnt `index.md`, und `CONTEXT.md` wird nicht gelesen. Die Regel gilt nur für die Wurzel, die `context_start` liest; Indexdateien tieferer Ebenen findet die KI über `context_list`.
 
 **Archivieren ist Verschieben, nie Löschen.** `context_archive` nimmt einen Ordner und Dateinamen direkt darin. Jede Datei wandert nach `<Ordner>/archive/<Name>`; das Ziel liegt also immer im selben Projekt. Nur `.md`-Dateien, nur direkte Kinder (kein Schrägstrich im Namen), keine Pfade, die hinausführen (A2).
 
-**Nie überschreiben.** Existiert ein Ziel, wird vor der Frage abgebrochen, und nichts wird verschoben. Der Ablauf ist: lesen und Ziele prüfen, Freigabe, Stand jeder Datei erneut prüfen (über `verschiebe` mit der gelesenen Version), verschieben, zurücklesen. Ein Vergleich der Bytes meldet `verified` (A3). Scheitert eine Datei nach anderen, meldet die Antwort, was verschoben wurde und was nicht; gelöscht oder überschrieben wird nichts.
+**Nie überschreiben.** Existiert ein Ziel, wird vor der Frage abgebrochen, und nichts wird verschoben. Der Ablauf ist: lesen und Ziele prüfen, Freigabe, Stand jeder Datei erneut prüfen, verschieben, zurücklesen. Das Verschieben selbst ist am Ort ohne Überschreiben gesichert: Lokal entsteht das Ziel als zweiter Name derselben Datei, den das Betriebssystem nur anlegt, wenn der Name frei ist; WebDAV verlangt im MOVE `Overwrite: F` und den gelesenen Stand als `If-Match`. Ein Ziel, das erst während der Freigabe erscheint, wird so abgewiesen. Scheitert eine Datei nach anderen, meldet die Antwort, was verschoben wurde und was nicht; gelöscht oder überschrieben wird nichts.
 
 **Freigabe wie bei einer neuen Datei.** Die Verschiebung fragt auf Stufe „alle“ (`Art.newFile`), nicht auf „mittel“ wie Planänderungen. Die Freigabe nennt nur Pfade im Kontextbereich, nie die Wurzel (A7).
 

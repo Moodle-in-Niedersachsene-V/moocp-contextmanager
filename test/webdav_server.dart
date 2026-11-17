@@ -245,6 +245,13 @@ class WebDavTestServer {
       antwort.statusCode = HttpStatus.notFound;
       return;
     }
+    // Wie ein Server: If-Match verlangt den Stand der Quelle, sonst 412.
+    final ifMatch = anfrage.headers.value(HttpHeaders.ifMatchHeader);
+    if (ifMatch != null &&
+        ifMatch != '"${_hash(await File(ziel).readAsBytes())}"') {
+      antwort.statusCode = HttpStatus.preconditionFailed;
+      return;
+    }
     final ziele = Uri.parse(anfrage.headers.value('Destination') ?? '');
     final zielTeile = ziele.pathSegments
         .sublist(1)

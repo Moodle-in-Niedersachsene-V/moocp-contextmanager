@@ -168,8 +168,15 @@ class WebDavSpeicher extends Kontextspeicher {
     }
   }
 
+  /// Verschiebt per MOVE. `Overwrite: F` lässt ein vorhandenes Ziel stehen, und
+  /// `If-Match` mit dem gelesenen ETag der Quelle lässt die Verschiebung scheitern,
+  /// wenn sich die Quelle geändert hat. Beides prüft der Server in einem Schritt.
   @override
-  Future<void> verschiebeDatei(String von, String nach) async {
+  Future<void> verschiebeDatei(
+    String von,
+    String nach, {
+    required String erwartet,
+  }) async {
     final ziel = pfadTeile(nach);
     await _ordnerAnlegen(ziel.sublist(0, ziel.length - 1), nach);
     final antwort = await _anfrage(
@@ -179,6 +186,7 @@ class WebDavSpeicher extends Kontextspeicher {
         'Destination': _url(ziel).toString(),
         // Ein vorhandenes Ziel wird nie überschrieben.
         'Overwrite': 'F',
+        HttpHeaders.ifMatchHeader: '"$erwartet"',
       },
     );
     switch (antwort.status) {
@@ -186,7 +194,8 @@ class WebDavSpeicher extends Kontextspeicher {
         return;
       case HttpStatus.preconditionFailed:
         throw KontextKonflikt(
-          "'$nach' already exists; nothing was moved. Choose another path.",
+          "'$von' changed since it was read, or '$nach' already exists; nothing was moved. "
+          'Read it again and choose another path.',
         );
       case HttpStatus.notFound:
         throw KontextFehler("'$von' does not exist in the context area.");

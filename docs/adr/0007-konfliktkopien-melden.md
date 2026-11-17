@@ -8,9 +8,9 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). 
 
 **Erkannte Muster.** Namen, die die Sync-Clients für Konfliktkopien vergeben (`lib/src/konflikt.dart`):
 
-- Syncthing: `name.sync-conflict-JJJJMMTT-HHMMSS-GERÄT.endung`
-- Nextcloud-Desktop (neuere Versionen): `name_conflict-JJJJMMTT-HHMMSS.endung`
-- Dropbox und ältere Nextcloud-Versionen: `name (conflicted copy …).endung` (ohne Beachtung der Groß- und Kleinschreibung)
+- Syncthing: `name.sync-conflict-JJJJMMTT-HHMMSS[-GERÄT].endung` (die Gerätekennung fehlt manchmal)
+- Nextcloud-Desktop, ältere Form: `name_conflict-[BENUTZER-]JJJJMMTT-HHMMSS.endung`
+- Dropbox und neuere Nextcloud-Versionen: `name (conflicted copy [BENUTZER] JJJJ-MM-TT HHMMSS).endung` (ohne Beachtung der Groß- und Kleinschreibung)
 - Seafile: `name (SFConflict Benutzer Zeit).endung`
 
 Das Original ist der Name mit gleicher Endung ohne den Zusatz. Ob es im selben Ordner liegt, wird mitgemeldet.
@@ -19,7 +19,7 @@ Das Original ist der Name mit gleicher Endung ohne den Zusatz. Ob es im selben O
 
 **Wo gemeldet.** `context_list` meldet die Konfliktkopien des Ordners, den es auflistet, unter der Liste, nur auf dieser Ebene. `context_start` sucht im ganzen Kontextbereich, breit zuerst, und nennt Pfade relativ zur Wurzel. Ein Ordner, der sich nicht lesen lässt, wird genannt und übergangen.
 
-**Obergrenzen.** Die Suche prüft höchstens 500 Ordner und 10 Ebenen tief. Was darüber liegt, wird nicht geprüft, und die Antwort sagt es. So wächst die Startantwort nicht mit einem unerwartet großen Kontextbereich, und eine Verknüpfung, die im Kreis führt, hält die Suche nicht an.
+**Obergrenzen.** Die Suche prüft höchstens 500 Ordner und 10 Ebenen tief und bricht nach 20 Sekunden ab. Was darüber liegt, wird nicht geprüft, und die Antwort sagt „not fully checked“. So wächst die Startantwort nicht mit einem unerwartet großen Kontextbereich, und eine Verknüpfung, die im Kreis führt, hält die Suche nicht an. Die Zeitgrenze lässt sich am MCP-Seam nicht verkürzen und wird deshalb am Modul geprüft.
 
 **Ausfall.** Antwortet der Ort während der Suche nicht, steht in der Antwort „not checked“ mit dem Grund; `context_start` wirft nicht.
 

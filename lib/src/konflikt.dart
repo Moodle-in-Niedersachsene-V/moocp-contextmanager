@@ -2,19 +2,21 @@ import 'fehler.dart';
 import 'speicher.dart';
 
 /// Die Obergrenzen der Suche im ganzen Kontextbereich. Ein Ordner, der tiefer
-/// liegt oder nach diesen Ordnern drankommt, wird nicht geprüft; die Antwort sagt es.
+/// liegt, nach diesen Ordnern drankommt oder nach der Zeit dran wäre, wird nicht
+/// geprüft; die Antwort sagt dann „not fully checked“.
 const konfliktHoechstTiefe = 10;
 const konfliktHoechstOrdner = 500;
+const konfliktZeitlimit = Duration(seconds: 20);
 
 /// Die Muster der Namen, die Sync-Clients für Konfliktkopien vergeben (Spec #74,
 /// ADR 0007). Jedes Muster hat als erste Gruppe den Stamm und als zweite die
 /// Endung des Originals.
 final _muster = <RegExp>[
-  // Syncthing: name.sync-conflict-JJJJMMTT-HHMMSS-GERÄT.endung
-  RegExp(r'^(.+)\.sync-conflict-\d{8}-\d{6}-[A-Za-z0-9]+(\.[^.]+)?$'),
-  // Nextcloud-Desktop (neuere Versionen): name_conflict-JJJJMMTT-HHMMSS.endung
-  RegExp(r'^(.+)_conflict-\d{8}-\d{6}(\.[^.]+)?$'),
-  // Dropbox und ältere Nextcloud-Versionen: name (conflicted copy …).endung
+  // Syncthing: name.sync-conflict-JJJJMMTT-HHMMSS[-GERÄT].endung (Gerät optional)
+  RegExp(r'^(.+)\.sync-conflict-\d{8}-\d{6}(?:-[A-Za-z0-9]+)?(\.[^.]+)?$'),
+  // Nextcloud-Desktop, ältere Form: name_conflict-[BENUTZER-]JJJJMMTT-HHMMSS.endung
+  RegExp(r'^(.+)_conflict-(?:.+-)?\d{8}-\d{6}(\.[^.]+)?$'),
+  // Dropbox und neuere Nextcloud-Versionen: name (conflicted copy [BENUTZER] JJJJ-MM-TT HHMMSS).endung
   RegExp(
     r'^(.+) \([^()]*conflicted copy[^()]*\)(\.[^.]+)?$',
     caseSensitive: false,
@@ -82,25 +84,43 @@ class KonfliktSuche {
     required this.funde,
     required this.unpruefbar,
     required this.begrenzt,
+    required this.zeitlimitErreicht,
   });
 
   final List<Konfliktkopie> funde;
   final List<String> unpruefbar;
+
+  /// Obergrenzen an Ordnern oder Ebenen haben gegriffen.
   final bool begrenzt;
+
+  /// Die Zeit ist abgelaufen, bevor alle Ordner geprüft waren.
+  final bool zeitlimitErreicht;
+
+  /// Ob die Suche alle Ordner des Kontextbereichs erfasst hat.
+  bool get vollstaendig => !begrenzt && !zeitlimitErreicht && unpruefbar.isEmpty;
 }
 
 /// Sucht Konfliktkopien im ganzen Kontextbereich, breit zuerst. Ein Ordner, der
 /// sich nicht lesen lässt, wird genannt und übergangen. Antwortet der Ort nicht,
 /// wirft es [KontextNichtErreichbar].
-Future<KonfliktSuche> sucheKonfliktkopien(Kontextspeicher speicher) async {
+Future<KonfliktSuche> sucheKonfliktkopien(
+  Kontextspeicher speicher, {
+  Duration zeitlimit = konfliktZeitlimit,
+}) async {
   final funde = <Konfliktkopie>[];
   final unpruefbar = <String>[];
   var begrenzt = false;
+  var zeitlimitErreicht = false;
   var geprueft = 0;
+  final ende = DateTime.now().add(zeitlimit);
   final warteschlange = <(String, int)>[('', 0)];
   while (warteschlange.isNotEmpty) {
     if (geprueft >= konfliktHoechstOrdner) {
       begrenzt = true;
+      break;
+    }
+    if (!DateTime.now().isBefore(ende)) {
+      zeitlimitErreicht = true;
       break;
     }
     final (ordner, tiefe) = warteschlange.removeAt(0);
@@ -123,7 +143,12 @@ Future<KonfliktSuche> sucheKonfliktkopien(Kontextspeicher speicher) async {
       warteschlange.add((Konfliktkopie.verbinde(ordner, e.name), tiefe + 1));
     }
   }
-  return KonfliktSuche(funde: funde, unpruefbar: unpruefbar, begrenzt: begrenzt);
+  return KonfliktSuche(
+    funde: funde,
+    unpruefbar: unpruefbar,
+    begrenzt: begrenzt,
+    zeitlimitErreicht: zeitlimitErreicht,
+  );
 }
 
 /// Die Zeilen je Konfliktkopie. [vollerPfad]: Pfade relativ zur Wurzel statt

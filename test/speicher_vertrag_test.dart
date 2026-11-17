@@ -58,6 +58,36 @@ void _vertrag(Ortsart art) {
 
   String datei(String relativ) => p.join(root, relativ);
 
+  group('verschiebeDatei: nie überschreiben, nur mit dem gelesenen Stand', () {
+    test('ein vorhandenes Ziel bleibt unangetastet, die Quelle auch', () async {
+      await File(datei('a.md')).writeAsString('quelle\n');
+      await File(datei('b.md')).writeAsString('ziel\n');
+      await expectLater(
+        speicher.verschiebeDatei('a.md', 'b.md', erwartet: _sha('quelle\n')),
+        throwsA(isA<KontextKonflikt>()),
+      );
+      expect(File(datei('a.md')).readAsStringSync(), 'quelle\n');
+      expect(File(datei('b.md')).readAsStringSync(), 'ziel\n');
+    });
+
+    test('eine Quelle mit anderem Stand wird nicht verschoben', () async {
+      await File(datei('a.md')).writeAsString('neu\n');
+      await expectLater(
+        speicher.verschiebeDatei('a.md', 'b.md', erwartet: _sha('alt\n')),
+        throwsA(isA<KontextKonflikt>()),
+      );
+      expect(File(datei('a.md')).readAsStringSync(), 'neu\n');
+      expect(File(datei('b.md')).existsSync(), isFalse);
+    });
+
+    test('mit dem gelesenen Stand wird verschoben, der Inhalt bleibt gleich', () async {
+      await File(datei('a.md')).writeAsString('inhalt\n');
+      await speicher.verschiebeDatei('a.md', 'archiv/b.md', erwartet: _sha('inhalt\n'));
+      expect(File(datei('a.md')).existsSync(), isFalse);
+      expect(File(datei('archiv/b.md')).readAsStringSync(), 'inhalt\n');
+    });
+  });
+
   test('die Liste zeigt Dateien und Ordner, sortiert nach Namen', () async {
     await File(datei('b.md')).writeAsString('b');
     await Directory(datei('a')).create();
