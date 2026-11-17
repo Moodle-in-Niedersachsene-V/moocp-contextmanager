@@ -32,7 +32,9 @@ Git: Entwickelt wird auf GitHub (`Moodle-in-Niedersachsene-V/moocp-contextmanage
 
 ## Entscheidungen
 
-Noch keine. Neue Entscheidungen bekommen die nächste freie Nummer (`0001-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
+- [E1 Schreiben mit Stand und Freigabe](docs/adr/0001-schreiben-mit-stand-und-freigabe.md): Schreiben nur mit der gelesenen Version, Freigabe nach Art der Änderung, Journal nur anhängen, nur `.md` innerhalb der Wurzel.
+
+Neue Entscheidungen bekommen die nächste freie Nummer (`0002-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
 
 ## Arbeitsregeln für die KI
 

@@ -12,6 +12,33 @@ import 'package:path/path.dart' as p;
 /// Der Schlüssel, den das Testgerüst dem Plugin mitgibt.
 const testSchluessel = 'testschluessel-0123456789';
 
+/// Das Token eines Aufrufs, den das Testgerüst an die Werkzeuge schickt.
+const testAufruf = 'aufruf-testtoken';
+
+/// Die Rangfolge der Freigabestufen (E20): Eine Anfrage mit `ab` wird
+/// gestellt, wenn die Stufe der Lehrkraft mindestens so hoch ist.
+const _rang = {'keine': 0, 'mittel': 1, 'alle': 2};
+
+/// Die falsche Adresse der App, wie moocp sie für Plugins bereitstellt. Sie
+/// zählt jede Anfrage und beantwortet Freigaben nach der Stufe der Lehrkraft,
+/// damit die Tests sehen, was das Plugin gefragt hat.
+class FakeApp {
+  /// Die Stufe der Lehrkraft: „keine“, „mittel“ oder „alle“.
+  String stufe = 'mittel';
+
+  /// Was die Lehrkraft antwortet, wenn sie gefragt wird.
+  String antwort = 'freigegeben';
+
+  /// Alle Anfragen als „METHODE pfad“; ohne Freigaben bleibt die Liste leer.
+  final List<String> anfragen = [];
+
+  /// Die Freigabeanfragen (Inhalt) je Aufruf, mit dem Token des Aufrufs.
+  final List<Map<String, dynamic>> freigaben = [];
+
+  /// Die Antworten, die das Plugin erhalten hat (für Freigaben: `ohneFrage`).
+  final List<Map<String, dynamic>> freigabeAntworten = [];
+}
+
 /// Eine laufende Instanz des Plugins samt Hilfsmitteln.
 class PluginProzess {
   PluginProzess._(
@@ -20,7 +47,7 @@ class PluginProzess {
     this.ordner,
     this.einstellungen,
     this.appServer,
-    this.appAnfragen,
+    this.app,
   );
 
   final Process prozess;
@@ -29,8 +56,11 @@ class PluginProzess {
   final File einstellungen;
   final HttpServer appServer;
 
+  /// Die falsche App: Anfragen und Freigaben, siehe [FakeApp].
+  final FakeApp app;
+
   /// Anfragen, die beim falschen App-Server ankamen (sollen in den Tests leer bleiben).
-  final List<String> appAnfragen;
+  List<String> get appAnfragen => app.anfragen;
 
   String? _sitzung;
   int _nummer = 0;
@@ -45,14 +75,31 @@ class PluginProzess {
     bool mitEntwicklung = false,
   }) async {
     final port = await _freierPort();
-    final appAnfragen = <String>[];
+    final app = FakeApp();
     final appServer = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     appServer.listen((anfrage) async {
-      appAnfragen.add('${anfrage.method} ${anfrage.uri.path}');
-      anfrage.response
-        ..statusCode = HttpStatus.notFound
-        ..write('{"fehler":"Testserver"}');
-      await anfrage.response.close();
+      final koerper = await utf8.decoder.bind(anfrage).join();
+      app.anfragen.add('${anfrage.method} ${anfrage.uri.path}');
+      if (anfrage.method == 'POST' && anfrage.uri.path == '/v1/freigabe') {
+        final aufruf = anfrage.headers.value('Moocp-Aufruf');
+        if (aufruf == null || aufruf.isEmpty) {
+          await _antworte(anfrage, HttpStatus.forbidden, {
+            'fehler': 'Kein Aufruf-Token.',
+          });
+          return;
+        }
+        final daten = (jsonDecode(koerper) as Map).cast<String, dynamic>();
+        app.freigaben.add(daten);
+        final gefragt = _rang[app.stufe]! >= _rang[daten['ab']]!;
+        final ergebnis = {
+          'ausgang': gefragt ? app.antwort : 'freigegeben',
+          'ohneFrage': !gefragt,
+        };
+        app.freigabeAntworten.add(ergebnis);
+        await _antworte(anfrage, HttpStatus.ok, ergebnis);
+        return;
+      }
+      await _antworte(anfrage, HttpStatus.notFound, {'fehler': 'Testserver'});
     });
 
     final einstellungen = File(p.join(ordner.path, 'einstellungen.json'));
@@ -85,15 +132,29 @@ class PluginProzess {
       ordner,
       einstellungen,
       appServer,
-      appAnfragen,
+      app,
     );
   }
 
   Uri get adresse => Uri.parse('http://127.0.0.1:$port/mcp');
 
+  static Future<void> _antworte(
+    HttpRequest anfrage,
+    int status,
+    Map<String, Object?> daten,
+  ) async {
+    anfrage.response
+      ..statusCode = status
+      ..headers.contentType = ContentType.json
+      ..write(jsonEncode(daten));
+    await anfrage.response.close();
+  }
+
   /// Meldet die Sitzung an (initialize mit der Adresse der App). Wartet,
   /// bis das Plugin antwortet.
-  Future<Map<String, dynamic>> initialisieren({String? schluessel = testSchluessel}) async {
+  Future<Map<String, dynamic>> initialisieren({
+    String? schluessel = testSchluessel,
+  }) async {
     final antwort = await anfragen(
       'initialize',
       {
@@ -116,8 +177,17 @@ class PluginProzess {
   }
 
   /// Ruft ein Werkzeug auf und liefert das Ergebnis (`content`, `isError`).
-  Future<Map<String, dynamic>> werkzeug(String name, Map<String, Object?> argumente) async {
-    return anfragen('tools/call', {'name': name, 'arguments': argumente});
+  /// Mit [aufruf] als Token des Aufrufs (moocp setzt es in `_meta`).
+  Future<Map<String, dynamic>> werkzeug(
+    String name,
+    Map<String, Object?> argumente, {
+    String? aufruf = testAufruf,
+  }) async {
+    return anfragen('tools/call', {
+      'name': name,
+      'arguments': argumente,
+      if (aufruf != null) '_meta': {'moocp/aufruf': aufruf},
+    });
   }
 
   /// Schickt eine JSON-RPC-Anfrage. Ohne [id] ist es eine Benachrichtigung.
@@ -144,11 +214,18 @@ class PluginProzess {
           final anfrage = await client.postUrl(adresse);
           anfrage.headers
             ..contentType = ContentType.json
-            ..set(HttpHeaders.acceptHeader, 'application/json, text/event-stream');
+            ..set(
+              HttpHeaders.acceptHeader,
+              'application/json, text/event-stream',
+            );
           if (schluessel != null) {
-            anfrage.headers.set(HttpHeaders.authorizationHeader, 'Bearer $schluessel');
+            anfrage.headers.set(
+              HttpHeaders.authorizationHeader,
+              'Bearer $schluessel',
+            );
           }
-          if (_sitzung != null) anfrage.headers.set('mcp-session-id', _sitzung!);
+          if (_sitzung != null)
+            anfrage.headers.set('mcp-session-id', _sitzung!);
           anfrage.add(utf8.encode(jsonEncode(koerper)));
           antwort = await anfrage.close();
           break;

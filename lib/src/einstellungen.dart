@@ -35,19 +35,34 @@ String standardEinstellungenPfad({Map<String, String>? umgebung}) {
 Future<Einstellungen> leseEinstellungen(File datei) async {
   if (!await datei.exists()) {
     throw const KontextFehler(
-      'The context area has not been set up yet: no settings file found.',
+      'The context area has not been set up yet: no settings file found. '
+      'Ask the teacher to set up the context area in the plugin settings.',
+    );
+  }
+  final String inhalt;
+  try {
+    inhalt = await datei.readAsString();
+  } on FileSystemException {
+    throw const KontextFehler(
+      'The settings file cannot be read: check that it is readable by this user.',
+    );
+  } on FormatException {
+    throw const KontextFehler(
+      'The settings file cannot be read: it is not UTF-8 text.',
     );
   }
   final Object? json;
   try {
-    json = jsonDecode(await datei.readAsString());
-  } on Object {
+    json = jsonDecode(inhalt);
+  } on FormatException {
     throw const KontextFehler(
       'The settings file cannot be read: it is not valid JSON.',
     );
   }
   if (json is! Map) {
-    throw const KontextFehler('The settings file cannot be read: it is not an object.');
+    throw const KontextFehler(
+      'The settings file cannot be read: it is not an object.',
+    );
   }
   final art = json['art'];
   if (art != 'lokal') {
@@ -59,6 +74,12 @@ Future<Einstellungen> leseEinstellungen(File datei) async {
   if (pfad is! String || pfad.isEmpty) {
     throw const KontextFehler(
       'The settings file names no folder for the local location.',
+    );
+  }
+  // Ein relativer Pfad hinge am Ordner, aus dem moocp das Plugin startet.
+  if (!p.isAbsolute(pfad)) {
+    throw const KontextFehler(
+      'The settings file must name an absolute folder path for the local location.',
     );
   }
   return Einstellungen(art: art!.toString(), pfad: pfad);

@@ -24,7 +24,9 @@ Future<void> main(List<String> argumente) async {
     stderr.writeln('context: needs --port <number> and $schluesselVariable.');
     exit(2);
   }
-  final einstellungen = File(_wert(argumente, '--einstellungen') ?? standardEinstellungenPfad());
+  final einstellungen = File(
+    _wert(argumente, '--einstellungen') ?? standardEinstellungenPfad(),
+  );
 
   final server = kontextServer(
     port: port,
