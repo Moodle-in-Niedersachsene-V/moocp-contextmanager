@@ -206,6 +206,18 @@ Future<String> verknuepfeWegweiser({
   if (ordner == null) {
     throw const KontextFehler('Not written: no folder was chosen.');
   }
+  // Der Ordner kommt aus dem Dialog der App; geprüft wird trotzdem, dass er ein
+  // absoluter, vorhandener Ordner ist, bevor etwas hineingeschrieben wird.
+  if (!p.isAbsolute(ordner)) {
+    throw const KontextFehler(
+      'moocp gave a folder that is not an absolute path; nothing was written.',
+    );
+  }
+  if (await FileSystemEntity.type(ordner) != FileSystemEntityType.directory) {
+    throw const KontextFehler(
+      'The chosen folder does not exist or is not a folder; nothing was written.',
+    );
+  }
   final datei = File(p.join(ordner, wegweiserDatei));
   final vorher = await _liesWegweiser(datei);
   final bisher = vorher == null
@@ -284,6 +296,11 @@ Future<void> _pruefeZiele(
 
 /// Der Inhalt des Wegweisers, falls vorhanden; null, wenn er fehlt. Ein Ordner
 /// oder eine Verknüpfung an dieser Stelle wird nicht überschrieben.
+///
+/// Bekannte Grenze (ADR 0005): Zwischen dieser Prüfung und dem Schreiben kann ein
+/// anderer Prozess eine Verknüpfung an dieser Stelle anlegen. Dart kann nicht
+/// ohne Verfolgen von Verknüpfungen öffnen; der Ordner gehört der Lehrkraft, und
+/// das Fenster ist kurz.
 Future<Uint8List?> _liesWegweiser(File datei) async {
   final typ = await FileSystemEntity.type(datei.path, followLinks: false);
   if (typ == FileSystemEntityType.notFound) return null;

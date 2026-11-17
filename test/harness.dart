@@ -67,6 +67,11 @@ class FakeApp {
 
   /// Die Ordnerdialoge, die das Plugin geöffnet hat (Titel und Art).
   final List<Map<String, dynamic>> dialoge = [];
+
+  /// Läuft beim Antworten auf eine Freigabe, bevor sie beantwortet wird. Ein Test
+  /// ändert hier die Datei, um zu prüfen, dass nach der Freigabe noch der gelesene
+  /// Stand gilt (Lehrkraft oder Sync-Client während der Wartezeit).
+  void Function()? beiFreigabe;
 }
 
 /// Eine laufende Instanz des Plugins samt Hilfsmitteln.
@@ -136,6 +141,7 @@ class PluginProzess {
         }
         final daten = (jsonDecode(koerper) as Map).cast<String, dynamic>();
         app.freigaben.add(daten);
+        app.beiFreigabe?.call();
         final gefragt = _rang[app.stufe]! >= _rang[daten['ab']]!;
         final ergebnis = {
           'ausgang': gefragt ? app.antwort : 'freigegeben',

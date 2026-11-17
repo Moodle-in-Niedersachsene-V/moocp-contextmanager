@@ -129,6 +129,66 @@ void _tests(Ortsart art) {
     });
   });
 
+  group('context_link: Ordner aus dem Dialog und Stand nach der Freigabe', () {
+    test(
+      'ein Ordner, der kein absoluter Pfad ist, wird nicht beschrieben',
+      () async {
+        final p = await laufendesPlugin(gewaehlt: 'relativ/ordner');
+        final ergebnis = await p.werkzeug('context_link', {
+          'eintraege': [
+            eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b'),
+          ],
+        });
+        expect(ergebnis['isError'], isTrue);
+        expect(PluginProzess.text(ergebnis), contains('not an absolute path'));
+        expect(p.app.freigaben, isEmpty);
+      },
+    );
+
+    test('ein Ordner, den es nicht gibt, oder eine Datei statt eines Ordners wird abgewiesen', () async {
+      final fehlt = p.join(ordner.path, 'gibt-es-nicht');
+      final datei = p.join(ordner.path, 'eine-datei.txt');
+      await File(datei).writeAsString('x\n');
+      for (final ziel in [fehlt, datei]) {
+        final p = await laufendesPlugin(gewaehlt: ziel);
+        final ergebnis = await p.werkzeug('context_link', {
+          'eintraege': [
+            eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b'),
+          ],
+        });
+        expect(ergebnis['isError'], isTrue, reason: ziel);
+        expect(
+          PluginProzess.text(ergebnis),
+          contains('does not exist or is not a folder'),
+        );
+        expect(p.app.freigaben, isEmpty);
+        await p.beenden();
+        plugin = null;
+      }
+    });
+
+    test('ändert sich der Wegweiser während der Freigabe, wird nichts überschrieben', () async {
+      final p = await laufendesPlugin();
+      p.app.beiFreigabe = () {
+        // Die Lehrkraft oder ein Sync-Client legt die Datei während der Freigabe an.
+        wegweiser().writeAsStringSync('Während der Freigabe geschrieben.\n');
+      };
+      final ergebnis = await p.werkzeug('context_link', {
+        'eintraege': [eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b')],
+      });
+      expect(ergebnis['isError'], isTrue);
+      expect(
+        PluginProzess.text(ergebnis),
+        contains('changed while the approval was open'),
+      );
+      expect(p.app.freigaben, hasLength(1), reason: 'gefragt wurde einmal');
+      expect(
+        wegweiser().readAsStringSync(),
+        'Während der Freigabe geschrieben.\n',
+      );
+    });
+  });
+
   group('context_link: Ziele und Abweisungen vor dem Dialog', () {
     test('ein fehlendes Ziel wird vor Dialog und Freigabe abgewiesen und nennt den Pfad', () async {
       final p = await laufendesPlugin();

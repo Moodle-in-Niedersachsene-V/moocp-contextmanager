@@ -16,6 +16,8 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). 
 
 **Stand.** Die Datei wird vor dem Dialog gelesen und nach der Freigabe erneut verglichen; hat sie sich geändert, wird nichts geschrieben. Geschrieben wird mit Rücklesen, und nur bei gleichen Bytes meldet das Werkzeug `verified` (E1, A3).
 
+**Bekannte Grenze.** Zwischen der Prüfung, ob `CONTEXT-LINK.md` eine Verknüpfung ist, und dem Schreiben kann eine Verknüpfung an dieser Stelle entstehen; das Plugin folgt ihr dann. Dart öffnet Dateien ohne Verfolgen von Verknüpfungen nicht, und das Fenster ist kurz. Der Ordner gehört der Lehrkraft; das Risiko ist gering und bleibt benannt.
+
 **Kein Ausstand.** Der Wegweiser schreibt nicht in die Wurzel. Antwortet der Kontextbereich nicht, scheitert der Aufruf mit Grund, und nichts wird zurückgestellt (E2 gilt nur für Schreibvorgänge in den Kontextbereich).
 
 ## Verworfen

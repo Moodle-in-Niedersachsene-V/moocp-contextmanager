@@ -18,11 +18,12 @@ Danach einen Kontextbereich in `einstellungen.json` eintragen (siehe Benutzerhan
 
 Eine Lehrkraft plant Kurse mit der KI und hält das Wissen dahinter (Pläne,
 Entscheidungen, Gewohnheiten, Fachbegriffe) in einem Kontextbereich außerhalb
-von Moodle. `context` stellt diesen Bereich der KI über fünf Werkzeuge bereit:
+von Moodle. `context` stellt diesen Bereich der KI über sechs Werkzeuge bereit:
 
 - `context_list` listet einen Ordner, `context_read` liest eine Datei mit ihrer Version.
   Dateien über 100 Zeilen kommen zuerst als Inhaltsverzeichnis; ein Abschnitt wird über seine Überschrift gelesen.
 - `context_write` legt eine Markdown-Datei an oder ersetzt sie, `context_append` hängt Text an.
+- `context_link` schreibt den Wegweiser `CONTEXT-LINK.md` in einen Materialordner, den die Lehrkraft wählt.
 - `context_start` beginnt die Sitzung: Lage des Kontextbereichs, offene Vorgänge, `index.md` und `habits.md` der Wurzel. Mit `wiederholen: true` werden die offenen Vorgänge nachgetragen.
 
 Lesen und Schreiben bleiben im Kontextbereich. Jeder Schreibvorgang fragt die
@@ -99,6 +100,24 @@ Eine abgelehnte oder abgebrochene Freigabe schreibt nichts, und die Antwort sagt
 es. Die Datei wird nie überschrieben, wenn sie sich seit dem Lesen geändert hat.
 Journaleinträge werden nur angehängt.
 
+### Wegweiser im Materialordner
+
+Der Wegweiser `CONTEXT-LINK.md` sagt der KI, welche Stelle im Kontextbereich zu
+einem Materialordner gehört, damit sie nicht suchen muss. Die KI legt ihn mit
+`context_link` an. Den Ordner wählt die Lehrkraft im Ordnerdialog von moocp; die
+KI nennt keinen Ordner. Die Lehrkraft gibt jede Änderung frei, auf jeder
+Freigabestufe, auch auf „keine“.
+
+Jeder Eintrag zeigt auf eine Datei oder einen Ordner im Kontextbereich, relativ
+zu dessen Wurzel, und hat eine Zeile dazu. Parallele Klassen bekommen je eine
+Bezeichnung (etwa „Gruppe A“); ein neuer Eintrag mit gleicher Bezeichnung ersetzt
+nur den alten, die übrigen bleiben. Zeigt ein Eintrag auf eine Stelle, die es
+nicht gibt, schreibt das Plugin nichts. Eine vorhandene Datei `CONTEXT-LINK.md`,
+die nicht im Aufbau des Plugins ist, bleibt unverändert.
+
+Der Wegweiser ist die einzige Datei, die das Plugin außerhalb des Kontextbereichs
+schreibt. Die Wurzel steht nie darin.
+
 ### Antwortet der Kontextbereich nicht
 
 Fehlt der Ordner der Wurzel oder ist er nicht lesbar, ist das eine Kontextlücke.
@@ -134,6 +153,7 @@ den Vorgang nicht an den neuen Ort, sondern meldet ihn und lässt ihn stehen.
   Standardeingabe).
 - `lib/src/inhaltsverzeichnis.dart`: Lesen von Dateien über 100 Zeilen: Inhaltsverzeichnis, Abschnitt über die Überschrift, ganze Datei nur auf Bitte.
 - `lib/src/start.dart`: `context_start`, die Startantwort mit Lage, Ausstand und Wurzeldateien.
+- `lib/src/wegweiser.dart`: `context_link`: Format von `CONTEXT-LINK.md`, Prüfung der Einträge, Zusammenführen und Schreiben im gewählten Ordner (E5). Die einzige Schreibstelle außerhalb der Wurzel.
 - `lib/src/ausstand.dart`: Ausstand im Datenordner (eine Datei je Vorgang) und die Wiederholung mit Stand-Prüfung und Freigabe (E2).
 - `lib/src/schreibauftrag.dart`: ein Schreibauftrag, sein Schreiben und seine Freigabe; gemeinsam für neue Schreibvorgänge und die Wiederholung.
 - `lib/src/speicher.dart`: der Kontextbereich als Schnittstelle (`Kontextspeicher`) mit
@@ -173,8 +193,9 @@ der App, die Freigaben nach der Stufe der Lehrkraft beantwortet und jede
 Anfrage zählt. Die Tests für Lesen und Einstellungen stehen in
 `test/context_plugin_test.dart`, die für lange Dateien in
 `test/inhaltsverzeichnis_test.dart`, die für Schreiben in `test/schreiben_test.dart`,
-die für den Start in `test/start_test.dart` und für den Ausstand in
-`test/ausstand_test.dart`. Ein Ausfall des Ortes simulieren die Tests, indem sie
+die für den Start in `test/start_test.dart`, für den Ausstand in
+`test/ausstand_test.dart`, für den Wegweiser in `test/wegweiser_test.dart` und die
+Prüfungen aus dem Review von #7 in `test/pruefung7_test.dart`. Ein Ausfall des Ortes simulieren die Tests, indem sie
 den Wurzelordner entfernen, am WebDAV-Ort stoppen sie den Server (`ausfallen`).
 Tests, die nur am lokalen Ordner Sinn haben (Verknüpfungen), sind dort übersprungen.
 

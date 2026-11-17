@@ -125,6 +125,29 @@ void _webdavTests() {
     );
 
     test(
+      'ein Name mit : im ersten Abschnitt wird kodiert und wieder gefunden',
+      () async {
+        server = WebDavTestServer(
+          ordner: Directory(root),
+          benutzer: testBenutzer,
+          passwort: testPasswort,
+        );
+        await server!.starten();
+        final speicher = await oeffnen();
+        // Ein Doppelpunkt vor dem ersten `/` würde als Schema gelesen, wenn er nicht kodiert wird.
+        await speicher.ablegen('a:b.md', utf8.encode('x\n'), erwartet: null);
+        await speicher.ablegen('a:b/c.md', utf8.encode('y\n'), erwartet: null);
+
+        expect(File(p.join(root, 'a:b.md')).readAsStringSync(), 'x\n');
+        expect(File(p.join(root, 'a:b', 'c.md')).readAsStringSync(), 'y\n');
+        final gelesen = await speicher.holeInhalt('a:b.md');
+        expect(utf8.decode(gelesen!.bytes), 'x\n');
+        final eintraege = await speicher.liste('');
+        expect(eintraege.map((e) => e.name), containsAll(['a:b.md', 'a:b']));
+      },
+    );
+
+    test(
       'eine Antwort über der Grenze wird nicht vollständig gelesen',
       () async {
         server = WebDavTestServer(
