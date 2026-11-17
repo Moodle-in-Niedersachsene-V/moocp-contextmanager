@@ -9,6 +9,10 @@ The context area is the teacher's memory across courses and school years. Work w
 
 Talk with the teacher in German. Summaries for approval dialogs (the `zusammenfassung` argument) and all file contents are German too. This skill and the tool replies are English.
 
+## Hard rule: only sourced facts
+
+**Reasons, dates, sources and other facts in decisions, plans, journal entries and profiles come only from a source: the teacher, an existing context file, the Moodle course, or the material.** When no source gives a reason, write `Grund: nicht festgehalten`; for any other missing fact write `nicht festgehalten` after its label (for example `Datum: nicht festgehalten`). Then ask the teacher, and fill the gap only with the teacher's answer. This holds in every restructuring and migration too: a fact that the old files do not state is carried over as not recorded, never inferred from the plan, the journal or the course.
+
 For the file layout (which file goes where, plan states, journal, decisions), read `references/layout.md` before you create a file or restructure a unit.
 
 ## Session start
@@ -26,7 +30,7 @@ For the file layout (which file goes where, plan states, journal, decisions), re
 
 ## Ignoring the context for one session
 
-If the teacher says "ignore the context" (in German, for example "ignoriere den Kontext"), or means the same,, the context area is out of this session: do not call the `context_` tools and do not read signposts or index files. Work without documentation, say in one sentence that you do so, and name it in your last reply. Moodle writes still need the approval in the chat; the recording step is skipped for this session only, and your reply names it as "not recorded: context ignored at the teacher's request". The next session starts with `context_start` as usual.
+If the teacher says "ignore the context" (in German, for example "ignoriere den Kontext"), or means the same, the context area is out of this session: do not call the `context_` tools and do not read signposts or index files. Work without documentation, say in one sentence that you do so, and name it in your last reply. Moodle writes still need the approval in the chat; the recording step is skipped for this session only, and your reply names it as "not recorded: context ignored at the teacher's request". The next session starts with `context_start` as usual.
 
 ## Write mode
 
@@ -91,6 +95,7 @@ Every write names its kind in `art`. The kind decides at which approval level mo
 - Files under `journal/` are never replaced. Use `context_append` for them. The kind `journal` is accepted only for a journal file and only with `context_append`.
 - Only `.md` files, below the root. A path that leads out of the area is refused; do not try a variant of it.
 - Keep only what is not visible elsewhere, including in the Moodle course. Ordinary reasons go next to the plan item as one `why` line. A surprising decision with a real alternative gets its own short file in `decisions/`. History goes into the journal, not into the plan.
+- Facts and reasons only from a source (see the Hard rule above).
 
 ## Reading
 
