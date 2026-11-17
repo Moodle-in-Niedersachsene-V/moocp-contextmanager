@@ -1,0 +1,13 @@
+{
+  "name": "Kontextbereich",
+  "kurzname": "context",
+  "version": "0.1.0",
+  "schnittstelle": 1,
+  "programm": "context.exe",
+  "herkunft": "Plugin „context“ aus dem Repository Moodle-in-Niedersachsene-V/moocp-contextmanager",
+  "updateQuellen": [],
+  "zusatzadressen": [],
+  "skills": [],
+  "wahlSkills": {},
+  "entwicklungsPort": 47910
+}
