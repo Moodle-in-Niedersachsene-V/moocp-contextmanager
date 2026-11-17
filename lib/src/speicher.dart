@@ -70,6 +70,23 @@ abstract class Kontextspeicher {
   /// Verschiebt eine Datei innerhalb der Wurzel. Das Ziel darf nicht existieren.
   Future<void> verschiebeDatei(String von, String nach);
 
+  /// Ob ein Eintrag (Datei oder Ordner) unter der Wurzel existiert; die Wurzel
+  /// selbst existiert. Ein fehlender Elternordner oder ein Pfad, der hinausführt,
+  /// heißt nein. Ein Ausfall des Ortes bleibt ein Ausfall und wird weitergereicht.
+  Future<bool> existiert(String relativ) async {
+    final teile = pfadTeile(relativ);
+    if (teile.isEmpty) return true;
+    try {
+      final eltern = teile.sublist(0, teile.length - 1).join('/');
+      final eintraege = await liste(eltern);
+      return eintraege.any((e) => e.name == teile.last);
+    } on KontextNichtErreichbar {
+      rethrow;
+    } on KontextFehler {
+      return false;
+    }
+  }
+
   /// Liest eine Textdatei mit Version (für `context_read`).
   Future<Gelesen> lese(String relativ) async {
     final inhalt = await holeInhalt(relativ);

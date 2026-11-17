@@ -27,6 +27,18 @@ class WebDavTestServer {
   HttpServer? _server;
   int? _port;
 
+  /// Antwortet jede Anfrage mit diesem Status (etwa 401 oder 403), ohne den Inhalt
+  /// anzusehen. Null: der Server antwortet normal.
+  int? erzwungenerStatus;
+
+  /// Zusätzliche Namen, die jede Auflistung der Wurzel meldet, roh und ungeprüft
+  /// (etwa mit `/` oder Steuerzeichen), um die Prüfung der Namen zu testen.
+  final List<String> zusaetzlicheNamen = [];
+
+  /// Antwortet jede Leseanfrage (GET) mit diesem Status, Auflistungen bleiben
+  /// unberührt. Null: Lesen wie sonst.
+  int? statusFuerLesen;
+
   /// Die Adresse der Wurzel, mit abschließendem Schrägstrich.
   Uri get adresse => Uri.parse('http://127.0.0.1:$_port$webdavPfad/');
 
@@ -52,6 +64,10 @@ class WebDavTestServer {
   Future<void> _bearbeite(HttpRequest anfrage) async {
     final antwort = anfrage.response;
     try {
+      if (erzwungenerStatus != null) {
+        antwort.statusCode = erzwungenerStatus!;
+        return;
+      }
       if (anfrage.headers.value(HttpHeaders.authorizationHeader) !=
           'Basic ${base64.encode(utf8.encode('$benutzer:$passwort'))}') {
         antwort
@@ -111,6 +127,15 @@ class WebDavTestServer {
         final name = p.basename(kind.path);
         eintraege.add(await _eintrag(kind.path, [...rest, name]));
       }
+      if (rest.isEmpty) {
+        for (final name in zusaetzlicheNamen) {
+          eintraege.add(
+            '<d:response><d:href>$webdavPfad/${Uri.encodeComponent(name)}</d:href>'
+            '<d:propstat><d:prop><d:resourcetype/></d:prop>'
+            '<d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>',
+          );
+        }
+      }
     }
     anfrage.response
       ..statusCode = HttpStatus.multiStatus
@@ -139,6 +164,10 @@ class WebDavTestServer {
 
   Future<void> _lese(HttpRequest anfrage, String ziel) async {
     final antwort = anfrage.response;
+    if (statusFuerLesen != null) {
+      antwort.statusCode = statusFuerLesen!;
+      return;
+    }
     final typ = await FileSystemEntity.type(ziel);
     if (typ == FileSystemEntityType.notFound) {
       antwort.statusCode = HttpStatus.notFound;

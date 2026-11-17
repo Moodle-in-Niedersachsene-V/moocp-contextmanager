@@ -10,6 +10,7 @@ import 'pfad.dart';
 import 'schreibauftrag.dart';
 import 'speicher.dart';
 import 'start.dart';
+import 'wegweiser.dart';
 
 /// Die Werkzeuge des Plugins am MCP-Server. Jeder Aufruf öffnet den
 /// Kontextbereich neu über [zugang], damit eine Änderung der Einstellungen
@@ -162,6 +163,57 @@ void registriereWerkzeuge(
   );
 
   server.registerTool(
+    'context_link',
+    description:
+        'Writes the signpost file CONTEXT-LINK.md into a folder of the teacher\'s material. The '
+        'teacher picks the folder in moocp\'s folder dialog; you never name it. Each entry names '
+        'a place inside the context area (relative path, must exist; a trailing slash for a folder) '
+        'and one descriptive line. Give a "bezeichnung" for parallel classes; an entry with the same '
+        'label replaces the old one, the others stay. The teacher is asked for approval on every '
+        'approval level. Nothing else is written outside the context area.',
+    inputSchema: JsonSchema.object(
+      properties: {
+        'eintraege': JsonSchema.array(
+          minItems: 1,
+          description: 'One entry per class or place.',
+          items: JsonSchema.object(
+            properties: {
+              'pfad': JsonSchema.string(
+                description: 'Place relative to the context area, for example "klassen/7b/index.md" or "klassen/7b/".',
+              ),
+              'beschreibung': JsonSchema.string(
+                description: 'One line in German on what is there, for example "Mathematik, Klasse 7b, 2026/27".',
+              ),
+              'bezeichnung': JsonSchema.string(
+                description: 'Optional label for parallel classes, for example "Gruppe A".',
+              ),
+            },
+            required: ['pfad', 'beschreibung'],
+          ),
+        ),
+      },
+      required: ['eintraege'],
+    ),
+    annotations: const ToolAnnotations(
+      title: 'Write signpost',
+      readOnlyHint: false,
+      destructiveHint: true,
+      openWorldHint: false,
+    ),
+    callback: (args, extra) async {
+      return _ausfuehren(() async {
+        final eintraege = _wegweiserEintraege(args);
+        return verknuepfeWegweiser(
+          zugang: zugang,
+          app: app,
+          aufruf: _aufruf(extra),
+          eintraege: eintraege,
+        );
+      });
+    },
+  );
+
+  server.registerTool(
     'context_start',
     description:
         'Call this first in every session. In one answer it returns whether the context '
@@ -245,7 +297,12 @@ Future<CallToolResult> _schreibVorgang({
       return _zurueckgestellt(auftrag, zugang, ausstand, f.meldung);
     }
     // Vor der Frage prüfen: Ein Vorgang, der ohnehin scheitert, fragt nicht.
-    await speicher.pruefeStand(auftrag.pfad, erwartet: auftrag.version);
+    // Antwortet der Ort schon hier nicht, gilt dasselbe wie beim Öffnen: Ausstand.
+    try {
+      await speicher.pruefeStand(auftrag.pfad, erwartet: auftrag.version);
+    } on KontextNichtErreichbar catch (f) {
+      return _zurueckgestellt(auftrag, zugang, ausstand, f.meldung);
+    }
 
     final ausgang = await frageFreigabe(
       app,
@@ -360,6 +417,31 @@ Art _art(Map<String, dynamic> args) {
     );
   }
   return art;
+}
+
+/// Die Einträge von `context_link`. Die Argumente werden hier auf Typ und Pflichtfelder
+/// geprüft; Inhalt und Pfade prüft [pruefeEintraege].
+List<WegweiserEintrag> _wegweiserEintraege(Map<String, dynamic> args) {
+  final liste = args['eintraege'];
+  if (liste is! List) {
+    throw const KontextFehler("The argument 'eintraege' must be a list.");
+  }
+  return [
+    for (final eintrag in liste)
+      () {
+        if (eintrag is! Map) {
+          throw const KontextFehler(
+            "Each entry of 'eintraege' must be an object with 'pfad' and 'beschreibung'.",
+          );
+        }
+        final map = eintrag.cast<String, dynamic>();
+        return WegweiserEintrag(
+          bezeichnung: _optionalerText(map, 'bezeichnung'),
+          pfad: _text(map, 'pfad'),
+          beschreibung: _text(map, 'beschreibung'),
+        );
+      }(),
+  ];
 }
 
 /// Das Token des laufenden Aufrufs, das moocp in `_meta` mitgibt.

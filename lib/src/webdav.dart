@@ -239,10 +239,16 @@ class WebDavSpeicher extends Kontextspeicher {
   /// Die Antwort eines Servers in eine Meldung, die die KI und die Lehrkraft
   /// verstehen. Ohne Passwort, ohne Adresse.
   KontextFehler _fehler(int status, String relativ) {
-    if (status == HttpStatus.unauthorized || status == HttpStatus.forbidden) {
-      return KontextFehler(
-        'The WebDAV server refused the user or the password (HTTP $status). '
+    if (status == HttpStatus.unauthorized) {
+      return const KontextFehler(
+        'The WebDAV server refused the user or the password (HTTP 401). '
         'Check them in the settings window; nothing was written.',
+      );
+    }
+    if (status == HttpStatus.forbidden) {
+      return KontextFehler(
+        "The WebDAV server denies access to '$relativ' (HTTP 403): this user "
+        'has no permission for it. Check the permissions on the server; nothing was written.',
       );
     }
     if (status >= 300 && status < 400) {
@@ -282,9 +288,28 @@ class WebDavSpeicher extends Kontextspeicher {
       if (teile.length == urlTeile.length) continue; // der Ordner selbst
       if (teile.length != urlTeile.length + 1) continue;
       if (!_gleich(teile.sublist(0, urlTeile.length), urlTeile)) continue;
-      kinder.add(Eintrag(teile.last, istOrdner: antwortEintrag.istOrdner));
+      final name = teile.last;
+      _pruefeName(name, relativ);
+      kinder.add(Eintrag(name, istOrdner: antwortEintrag.istOrdner));
     }
     return (eigener: eigener, kinder: kinder);
+  }
+
+  /// Ein Name aus einer Auflistung muss ein einzelner Pfadteil sein: ohne `/`
+  /// (auch das kodierte `%2F`), ohne `.` und `..` und ohne Steuerzeichen. Sonst
+  /// wird die ganze Auflistung abgewiesen, statt einen Namen zu übergehen.
+  static void _pruefeName(String name, String relativ) {
+    final ungueltig =
+        name.isEmpty ||
+        name == '.' ||
+        name == '..' ||
+        name.contains('/') ||
+        name.codeUnits.any((c) => c < 0x20 || c == 0x7f);
+    if (ungueltig) {
+      throw KontextFehler(
+        "The WebDAV server sent a name that is not allowed in the listing of '$relativ'; the listing is refused.",
+      );
+    }
   }
 
   /// Der Eintrag des Ordners selbst (das erste Element der Antwort).
@@ -408,10 +433,17 @@ class WebDavSpeicher extends Kontextspeicher {
       anfrage.add(koerper);
     }
     final antwort = await anfrage.close();
-    final bytes = await antwort.fold<List<int>>(
-      <int>[],
-      (alt, teil) => alt..addAll(teil),
-    );
+    // Eine Antwort über der Grenze wird nicht vollständig gelesen: Ein Server, der
+    // endlos sendet, darf das Plugin nicht in den Speicher treiben.
+    final bytes = <int>[];
+    await for (final teil in antwort) {
+      bytes.addAll(teil);
+      if (bytes.length > hoechstgroesseAntwort) {
+        throw const KontextFehler(
+          'The WebDAV server sent more data than the plugin reads; nothing was written.',
+        );
+      }
+    }
     final kopfwerte = <String, String>{};
     antwort.headers.forEach((name, werte) {
       kopfwerte[name.toLowerCase()] = werte.join(', ');
@@ -426,6 +458,11 @@ class WebDavSpeicher extends Kontextspeicher {
     '<d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getetag/></d:prop></d:propfind>',
   );
 }
+
+/// Die größte Antwort, die das Plugin von einem WebDAV-Server annimmt (8 MiB).
+/// Eine Plandatei ist weit kleiner; die Grenze schützt vor einem Server, der
+/// ohne Ende sendet, und vor einer Datei, die das Plugin nicht im Speicher halten soll.
+const hoechstgroesseAntwort = 8 * 1024 * 1024;
 
 /// Die Antwort eines Servers: Status, Kopf (Namen klein) und Körper.
 class _Antwort {

@@ -265,6 +265,11 @@ Future<List<Wiederholung>> wiederholeAusstand({
         Wiederholung(vorgang, WiederholungAusgang.nichtErreichbar, f.meldung),
       );
       break;
+    } on KontextFehler catch (f) {
+      ergebnisse.add(
+        Wiederholung(vorgang, WiederholungAusgang.fehler, f.meldung),
+      );
+      break;
     }
     try {
       await speicher.pruefeStand(a.pfad, erwartet: a.version);

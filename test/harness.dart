@@ -61,6 +61,12 @@ class FakeApp {
 
   /// Die Antworten, die das Plugin erhalten hat (für Freigaben: `ohneFrage`).
   final List<Map<String, dynamic>> freigabeAntworten = [];
+
+  /// Der Ordner, den die Lehrkraft im Ordnerdialog wählt; null: sie bricht ab.
+  String? dialogPfad;
+
+  /// Die Ordnerdialoge, die das Plugin geöffnet hat (Titel und Art).
+  final List<Map<String, dynamic>> dialoge = [];
 }
 
 /// Eine laufende Instanz des Plugins samt Hilfsmitteln.
@@ -137,6 +143,17 @@ class PluginProzess {
         };
         app.freigabeAntworten.add(ergebnis);
         await _antworte(anfrage, HttpStatus.ok, ergebnis);
+        return;
+      }
+      if (anfrage.method == 'POST' && anfrage.uri.path == '/v1/dialog/pfad') {
+        final daten = (jsonDecode(koerper) as Map).cast<String, dynamic>();
+        app.dialoge.add(daten);
+        final gewaehlt = app.dialogPfad;
+        await _antworte(
+          anfrage,
+          HttpStatus.ok,
+          gewaehlt == null ? {'abgebrochen': true} : {'pfad': gewaehlt},
+        );
         return;
       }
       await _antworte(anfrage, HttpStatus.notFound, {'fehler': 'Testserver'});

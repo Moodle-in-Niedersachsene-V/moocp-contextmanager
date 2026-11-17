@@ -18,7 +18,7 @@ Git: Entwickelt wird auf GitHub (`Moodle-in-Niedersachsene-V/moocp-contextmanage
 
 **A1 moocp gilt.** Das Plugin hält die Plugin-Schnittstelle von moocp ein (dort E35, E36) und weicht keine Zusage von moocp auf: keine personenbezogenen Daten an die KI, kein eigener Weg zu Moodle, Freigaben nur über die App. Ein eigenes Fenster nur, wo ein Dialog der App nicht reicht.
 
-**A2 Nur der Kontextordner.** Die Werkzeuge lesen und schreiben ausschließlich unterhalb der gewählten Wurzel, lokal wie auf dem Server. Pfade, die hinausführen (`..`, absolute Pfade, Verknüpfungen nach außen), lehnt das Plugin ab.
+**A2 Nur der Kontextordner.** Die Werkzeuge lesen und schreiben ausschließlich unterhalb der gewählten Wurzel, lokal wie auf dem Server. Pfade, die hinausführen (`..`, absolute Pfade, Verknüpfungen nach außen), lehnt das Plugin ab. Einzige Ausnahme: der Wegweiser `CONTEXT-LINK.md` in dem Ordner, den die Lehrkraft im Ordnerdialog von moocp wählt (E5).
 
 **A3 Schreiben.** Ändern bricht ab, wenn die Datei nicht mehr den Stand vom Lesen hat. Jeder Schreibvorgang liest zurück und meldet `verified`; das Urteil fällt das Werkzeug, nicht die KI.
 
@@ -39,7 +39,9 @@ Git: Entwickelt wird auf GitHub (`Moodle-in-Niedersachsene-V/moocp-contextmanage
 - [E3 WebDAV: Version und Schreiben](docs/adr/0003-webdav-version-und-bedingtes-schreiben.md): Die Version auf WebDAV ist das starke ETag ohne Anführungszeichen, geschrieben wird nur mit `If-Match` oder `If-None-Match: *` (der Server lehnt Konflikte ab); ohne starkes ETag wird nichts gelesen oder geschrieben; Ordner per `MKCOL`, Verschieben per `MOVE` ohne Überschreiben; nur Zeitablauf, Verbindungsfehler und 5xx sind „Ort antwortet nicht“ (Ausstand), Anmeldung, Weiterleitung, fehlende Wurzel und Zertifikat nicht.
 - [E4 Schlüsselbund und Verbindung](docs/adr/0004-schluesselbund-und-verbindung.md): Das Passwort kommt nur aus dem Schlüsselbund über `secret-tool` bzw. `security`, nie aus einer Datei; fehlt es, ist das ein Fehler, kein Ersatz; die Adresse braucht `https` (`http` nur zu 127.0.0.1, ::1, localhost), ohne Zugangsdaten; Weiterleitungen werden nicht gefolgt.
 
-Neue Entscheidungen bekommen die nächste freie Nummer (`0005-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
+- [E5 Wegweiser im Materialordner](docs/adr/0005-wegweiser-im-materialordner.md): `context_link` schreibt nur `CONTEXT-LINK.md` in einen per Ordnerdialog gewählten Ordner (einzige Ausnahme zu A2), Freigabe auf jeder Stufe, jeder Eintrag zeigt auf einen vorhandenen Pfad unter der Wurzel, die Wurzel steht nie in der Datei, fremde Dateien werden nicht überschrieben.
+
+Neue Entscheidungen bekommen die nächste freie Nummer (`0006-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
 
 ## Arbeitsregeln für die KI
 
