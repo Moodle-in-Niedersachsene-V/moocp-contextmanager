@@ -7,7 +7,7 @@
   "herkunft": "Plugin „context“ aus dem Repository Moodle-in-Niedersachsene-V/moocp-contextmanager",
   "updateQuellen": [],
   "zusatzadressen": [],
-  "skills": [],
+  "skills": ["context"],
   "wahlSkills": {},
   "entwicklungsPort": 47910
 }

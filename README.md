@@ -34,7 +34,9 @@ Lesen und Schreiben bleiben im Kontextbereich. Jeder Schreibvorgang fragt die
 Lehrkraft in moocp je nach Freigabestufe, bricht ab, wenn die Datei sich seit
 dem Lesen geändert hat, und gilt erst als geprüft, wenn der Inhalt beim
 Zurücklesen stimmt. Das Plugin läuft als eigenes Programm neben moocp; die KI
-spricht es über den MCP-Server von moocp an.
+spricht es über den MCP-Server von moocp an. Der Skill `context` führt die KI
+durch diese Werkzeuge: er verlangt, dass ein freigegebener Plan vor jedem
+Schreiben in Moodle im Kontextbereich steht und geprüft ist.
 
 Jede Sitzung beginnt mit `context_start`: Es sagt in einer Antwort, ob der
 Kontextbereich antwortet, welche Schreibvorgänge noch nicht gespeichert sind,
@@ -50,6 +52,14 @@ Einstellungsordner von moocp unter `plugins/context`. moocp vorher beenden:
 Beim nächsten Start fragt moocp nach der Zustimmung zu dieser Version. Der
 Ordner enthält das Einstellungsfenster in `einstellungsfenster/`; das Plugin
 startet es von dort.
+
+Der Skill `context` liegt im Ordner `skills/` des Plugins. moocp richtet ihn
+bei den KI-Werkzeugen ein (Claude Code, Codex CLI, LM Studio), sobald die
+Lehrkraft das Plugin zugestimmt hat. Der Skill sagt der KI, wann sie den
+Kontextbereich liest und schreibt: zu Sitzungsbeginn, vor jedem Schreiben in
+Moodle, bei Freigaben und beim Wegweiser. Die Lehrkraft muss nichts davon
+einstellen; der Aufschreibmodus („fragen“, „immer“, „warten“) steht als
+Gewohnheit im Kontextbereich.
 
 ### Einstellungen
 
@@ -214,6 +224,7 @@ den Vorgang nicht an den neuen Ort, sondern meldet ihn und lässt ihn stehen.
 - `bin/context.dart`: Start nach den Regeln von moocp (Port auf der
   Kommandozeile, Schlüssel aus `MOOCP_PLUGIN_SCHLUESSEL`, Ende mit der
   Standardeingabe).
+- `skills/context/`: der Skill für die KI (`SKILL.md`, Ablauf und Regeln, auf Englisch; `references/layout.md`: Dateilayout). Er nennt nur Werkzeuge und Arten, die das Plugin kennt; `test/skill_test.dart` prüft das und die Beschreibungsdatei (`skills`) und das Bauen.
 - `lib/src/inhaltsverzeichnis.dart`: Lesen von Dateien über 100 Zeilen: Inhaltsverzeichnis, Abschnitt über die Überschrift, ganze Datei nur auf Bitte.
 - `lib/src/start.dart`: `context_start`, die Startantwort mit Lage, Ausstand, Konfliktkopien und Wurzeldateien (altes Layout: `CONTEXT.md` als Index).
 - `lib/src/konflikt.dart`: Namensmuster der Konfliktkopien von Sync-Clients und die Suche im Kontextbereich (E7).
@@ -249,6 +260,7 @@ Jede Test-Datei läuft zweimal, einmal am lokalen Ordner und einmal am WebDAV-Se
 im Testprozess (`fuerJedenOrt` in `test/harness.dart`). Der Server bedient den Ordner
 des Tests; das Passwort kommt von einem Ersatz für `secret-tool` im Ordner des Tests,
 der nur das Konto der Testanlage kennt. Der echte Schlüsselbund wird nie benutzt.
+Der Skill und seine Ablage prüft `test/skill_test.dart`: jeder Werkzeugname und jede Art im Skill muss zum Plugin passen, und `bauen.sh` muss den Skill in den Zielordner kopieren (mit einem Ersatz für `dart`, der nur die Ausgabedatei anlegt).
 Die Vertragstests der Speicherschicht (gleiche Fälle für beide Orte) stehen in
 `test/speicher_vertrag_test.dart`, die WebDAV-Fälle (Ausfall, Zeitlimit, Anmeldung,
 Adressen) in `test/webdav_test.dart`, der Schlüsselbund in `test/schluesselbund_test.dart`.

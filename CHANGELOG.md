@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Neu: Der Skill „context“ kommt mit dem Plugin und wird von moocp bei den KI-Werkzeugen eingerichtet. Er führt die KI durch den Sitzungsbeginn, den Aufschreibmodus, die Freigaben und den Wegweiser; ein freigegebener Plan steht vor jedem Schreiben in Moodle im Kontextbereich.
 - Neu: Ein Einstellungsfenster richtet den Kontextbereich ein: Ordner auf dem Rechner oder WebDAV-Server mit Adresse, Benutzer und verdecktem Passwort. „Verbindung prüfen“ zeigt, ob der Ort antwortet, oder nennt die Ursache; „Speichern“ trägt das Passwort in den Schlüsselbund des Systems ein.
 - Neu: Das Einstellungsfenster öffnet sich beim ersten Start ohne Einstellungen und, einmal je Ausfall, wenn der Kontextbereich nicht antwortet. Die KI kann es mit `context_settings` öffnen; sie sieht und setzt dabei keine Werte.
 - Neu: Der Kontextbereich kann auf einem WebDAV-Server liegen. Adresse und Benutzer stehen in den Einstellungen, das Passwort im Schlüsselbund des Systems. Antwortet der Server nicht, gilt dasselbe wie bei einem fehlenden Ordner: Der Schreibvorgang wartet im Ausstand.
