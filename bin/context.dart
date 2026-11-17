@@ -40,22 +40,28 @@ Future<void> main(List<String> argumente) async {
     fenster: fenster,
   );
   await server.start();
-  // Gibt es noch keine Einstellungen, öffnet die Lehrkraft das Fenster gleich (E8).
-  if (!await einstellungen.exists()) await fenster.beiAusfall();
-
-  // Das Fenster endet mit dem Plugin, auf jedem Weg des Endes (E8).
+  // Das Fenster endet mit dem Plugin, auf jedem Weg des Endes (E8). exit(0)
+  // läuft immer, auch wenn das Aufräumen scheitert.
   var endet = false;
   Future<void> enden() async {
     if (endet) return;
     endet = true;
-    await fenster.beenden();
-    await server.stop();
-    exit(0);
+    try {
+      await fenster.beenden();
+      await server.stop();
+    } finally {
+      exit(0);
+    }
   }
 
+  // Vor dem Öffnen des Fensters: Ein Signal, das gleich danach kommt, darf das
+  // Fenster nicht zurücklassen.
   // Nur Linux und macOS: dort gibt es diese Signale.
   ProcessSignal.sigterm.watch().listen((_) => enden());
   ProcessSignal.sigint.watch().listen((_) => enden());
+
+  // Gibt es noch keine Einstellungen, öffnet die Lehrkraft das Fenster gleich (E8).
+  if (!await einstellungen.exists()) await fenster.beiAusfall();
 
   // Zum Entwickeln von Hand: die Standardeingabe gehört nicht moocp.
   if (argumente.contains('--entwicklung')) return;

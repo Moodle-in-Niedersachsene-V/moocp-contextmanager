@@ -12,13 +12,11 @@ class Einstellungsfenster {
     required this.programm,
     required this.einstellungen,
     Future<Process> Function(String programm, List<String> argumente)? starten,
-    File? pidDatei,
     Future<String?> Function(int pid)? befehlszeile,
+    this.wartezeit = const Duration(seconds: 3),
   }) : _starten = starten ?? _echtStarten,
-       _pidDatei =
-           pidDatei ??
-           File(p.join(p.dirname(einstellungen.path), 'fenster.pid')),
-       _befehlszeile = befehlszeile ?? _echteBefehlszeile;
+       _befehlszeile = befehlszeile ?? _echteBefehlszeile,
+       _pidDatei = File(p.join(p.dirname(einstellungen.path), 'fenster.pid'));
 
   /// Das Programm des Fensters.
   final String programm;
@@ -29,13 +27,20 @@ class Einstellungsfenster {
   final Future<Process> Function(String programm, List<String> argumente)
   _starten;
 
-  /// Die Pid des offenen Fensters, im Datenordner neben den Einstellungen. Sie
-  /// überlebt ein Plugin, das ohne aufzuräumen endet (Absturz, SIGKILL); der
-  /// nächste Start beendet den Rest, bevor er ein Fenster öffnet.
-  final File _pidDatei;
+  /// Wie lange ein Fenster nach SIGTERM (und dann nach SIGKILL) Zeit hat zu enden.
+  final Duration wartezeit;
 
-  /// Die Kommandozeile eines Prozesses (null: es gibt ihn nicht).
+  /// Die Kommandozeile eines Prozesses; null, wenn es ihn nicht gibt. Wirft
+  /// [BefehlszeilenFehler], wenn sich das nicht feststellen lässt.
   final Future<String?> Function(int pid) _befehlszeile;
+
+  // Die Pid des offenen Fensters steht im Datenordner neben den Einstellungen.
+  // Sie überlebt ein Plugin, das ohne Aufräumen endet (Absturz, SIGKILL): Der
+  // nächste Start beendet den Rest, bevor er ein Fenster öffnet, damit nie zwei
+  // offen sind. Geschrieben wird sie wie die Einstellungen (Datei daneben, dann
+  // umbenennen); eine Verknüpfung an der Stelle der Pid-Datei oder der Datei
+  // daneben wird ersetzt, nie gefolgt.
+  final File _pidDatei;
 
   /// Das laufende Fenster, solange es offen ist.
   Process? _prozess;
@@ -47,13 +52,17 @@ class Einstellungsfenster {
   /// Ob gerade ein Start läuft (zwischen Aufruf und Rückkehr des Startens).
   bool _startet = false;
 
+  /// Der laufende Start, auf den [beenden] wartet.
+  Future<FensterErgebnis>? _laufenderStart;
+
+  /// Ob das Plugin endet: dann startet kein Fenster mehr, und eines, das gerade
+  /// startet, wird gleich wieder beendet.
+  bool _endet = false;
+
   /// Auf Wunsch (`context_settings`): öffnet das Fenster, wenn es nicht offen ist.
   Future<FensterErgebnis> oeffnen() async {
     if (_prozess != null) {
-      return const FensterErgebnis(
-        FensterStand.lauft,
-        'The settings window is already open.',
-      );
+      return const FensterErgebnis(FensterStand.lauft, 'The settings window is already open.');
     }
     return _start();
   }
@@ -74,12 +83,19 @@ class Einstellungsfenster {
   /// Das Plugin endet: ein offenes Fenster endet mit. Wird auf jedem Weg des
   /// Endes gerufen (Standardeingabe zu, SIGTERM, SIGINT) und ist wiederholbar.
   Future<void> beenden() async {
+    _endet = true;
+    // Ein Start, der gerade läuft, beendet sein Fenster selbst, sobald es da ist.
+    try {
+      await _laufenderStart;
+    } on Object {
+      // Ein gescheiterter Start hat kein Fenster hinterlassen.
+    }
     final prozess = _prozess;
     _prozess = null;
     if (prozess != null) {
       prozess.kill();
       await prozess.exitCode.timeout(
-        const Duration(seconds: 3),
+        wartezeit,
         onTimeout: () {
           prozess.kill(ProcessSignal.sigkill);
           return -1;
@@ -91,66 +107,104 @@ class Einstellungsfenster {
 
   Future<void> _loeschePid() async {
     try {
-      if (await _pidDatei.exists()) await _pidDatei.delete();
+      if (FileSystemEntity.isLinkSync(_pidDatei.path) || _pidDatei.existsSync()) {
+        await _pidDatei.delete();
+      }
     } on FileSystemException {
       // Eine Pid-Datei, die bleibt, wird beim nächsten Start geprüft.
     }
   }
 
-  /// Beendet ein Fenster aus einem früheren Lauf, das noch offen ist. Beendet
-  /// wird nur, was unter der alten Pid wirklich das Programm des Fensters ist:
-  /// Die Pid kann inzwischen einem fremden Prozess gehören.
-  Future<void> _raeumeRestAuf() async {
-    final int? pid;
+  Future<void> _schreibePid(int pid) async {
     try {
-      pid = int.tryParse((await _pidDatei.readAsString()).trim());
-    } on FileSystemException {
-      return;
-    }
-    if (pid != null && pid > 1) {
-      final zeile = await _befehlszeile(pid);
-      if (zeile != null && zeile.contains(programm)) {
-        Process.killPid(pid);
-        // Kurz warten, bis das alte Fenster fort ist, damit nie zwei offen sind.
-        for (var i = 0; i < 30 && await _befehlszeile(pid) != null; i++) {
-          await Future<void>.delayed(const Duration(milliseconds: 100));
-        }
-      }
-    }
-    await _loeschePid();
-  }
-
-  Future<FensterErgebnis> _start() async {
-    if (_prozess != null || _startet) {
-      return const FensterErgebnis(
-        FensterStand.lauft,
-        'The settings window is already open.',
-      );
-    }
-    // Gesetzt, bevor das Programm startet: Ein zweiter Aufruf, der während des
-    // Wartens hier ankommt, startet kein zweites Fenster.
-    _startet = true;
-    final Process prozess;
-    try {
-      await _raeumeRestAuf();
-      prozess = await _starten(programm, [
-        '--einstellungen',
-        einstellungen.path,
-      ]);
-    } on ProcessException {
-      _startet = false;
-      return const FensterErgebnis(
-        FensterStand.nichtGestartet,
-        'The settings window could not be started. Ask the teacher to open it from the plugin folder.',
-      );
-    }
-    _startet = false;
-    _prozess = prozess;
-    try {
-      await _pidDatei.writeAsString('${prozess.pid}');
+      final tmp = File('${_pidDatei.path}.tmp');
+      if (FileSystemEntity.isLinkSync(tmp.path)) await tmp.delete();
+      await tmp.writeAsString('$pid', flush: true);
+      await tmp.rename(_pidDatei.path);
     } on FileSystemException {
       // Ohne Pid-Datei bleibt nur der Schutz beim geordneten Ende des Plugins.
     }
+  }
+
+  /// Ob [zeile] die Kommandozeile unseres Fensters ist: das Programm als
+  /// ganzes Wort am Anfang und sein Argument `--einstellungen`. Die Pid kann
+  /// inzwischen einem fremden Prozess gehören, der den Pfad nur erwähnt.
+  bool _istFenster(String zeile) =>
+      (zeile == programm || zeile.startsWith('$programm ')) &&
+      zeile.contains('--einstellungen');
+
+  Future<bool> _lebt(int pid) async => await _befehlszeile(pid) != null;
+
+  Future<bool> _warteBisEnde(int pid) async {
+    final bis = DateTime.now().add(wartezeit);
+    while (DateTime.now().isBefore(bis)) {
+      if (!await _lebt(pid)) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
+    return !await _lebt(pid);
+  }
+
+  /// Beendet ein Fenster aus einem früheren Lauf, das noch offen ist: erst
+  /// SIGTERM, nach der Wartezeit SIGKILL. Gibt den Grund zurück, wenn danach
+  /// nicht sicher ist, dass es fort ist (dann öffnet kein zweites Fenster).
+  Future<String?> _raeumeRestAuf() async {
+    final int? pid;
+    try {
+      pid = FileSystemEntity.isLinkSync(_pidDatei.path)
+          ? null
+          : int.tryParse((await _pidDatei.readAsString()).trim());
+    } on FileSystemException {
+      return null;
+    }
+    if (pid != null && pid > 1) {
+      try {
+        final zeile = await _befehlszeile(pid);
+        if (zeile != null && _istFenster(zeile)) {
+          Process.killPid(pid);
+          if (!await _warteBisEnde(pid)) {
+            Process.killPid(pid, ProcessSignal.sigkill);
+            if (!await _warteBisEnde(pid)) return _restBleibt;
+          }
+        }
+      } on BefehlszeilenFehler {
+        return _restNichtGeprueft;
+      }
+    }
+    await _loeschePid();
+    return null;
+  }
+
+  Future<FensterErgebnis> _start() {
+    if (_endet) return Future.value(_nichtGestartet);
+    if (_prozess != null || _startet) {
+      return Future.value(
+        const FensterErgebnis(FensterStand.lauft, 'The settings window is already open.'),
+      );
+    }
+    // Gesetzt, bevor etwas wartet: Ein zweiter Aufruf, der während des Wartens
+    // hier ankommt, startet kein zweites Fenster.
+    _startet = true;
+    return _laufenderStart = _startInnen().whenComplete(() => _startet = false);
+  }
+
+  Future<FensterErgebnis> _startInnen() async {
+    final Process prozess;
+    try {
+      final grund = await _raeumeRestAuf();
+      if (grund != null) {
+        return FensterErgebnis(FensterStand.nichtGestartet, grund);
+      }
+      prozess = await _starten(programm, ['--einstellungen', einstellungen.path]);
+    } on ProcessException {
+      return _nichtGestartet;
+    }
+    if (_endet) {
+      // Das Plugin endete, während das Fenster startete.
+      prozess.kill(ProcessSignal.sigkill);
+      return _nichtGestartet;
+    }
+    _prozess = prozess;
+    await _schreibePid(prozess.pid);
     // Die Ausgabe des Fensters wird verworfen, damit der Puffer nicht volläuft.
     prozess.stdout.drain<void>();
     prozess.stderr.drain<void>();
@@ -167,6 +221,21 @@ class Einstellungsfenster {
       'The settings window is open. The teacher enters the location and the password there; the assistant does not see or pass them.',
     );
   }
+}
+
+const _nichtGestartet = FensterErgebnis(
+  FensterStand.nichtGestartet,
+  'The settings window could not be started. Ask the teacher to open it from the plugin folder.',
+);
+const _restBleibt =
+    'The settings window could not be started: an earlier settings window of the plugin is still open and did not end. Ask the teacher to close it.';
+const _restNichtGeprueft =
+    'The settings window could not be started: an earlier settings window may still be open and could not be checked (the system tool ps failed). Ask the teacher to close it.';
+
+/// Die Kommandozeile eines Prozesses ließ sich nicht feststellen (`ps` fehlt oder
+/// scheitert), anders als "es gibt den Prozess nicht".
+class BefehlszeilenFehler implements Exception {
+  const BefehlszeilenFehler();
 }
 
 /// Ob das Fenster geöffnet wurde, schon offen war oder nicht startete.
@@ -212,14 +281,18 @@ Future<Process> _echtStarten(String programm, List<String> argumente) {
   );
 }
 
-/// Die Kommandozeile unter [pid] über `ps` (Linux und macOS); null, wenn es den
-/// Prozess nicht gibt.
+/// Die Kommandozeile unter [pid] über `ps` (Linux und macOS). `ps -p` endet mit
+/// 1 und ohne Ausgabe, wenn es den Prozess nicht gibt; jeder andere Ausfall ist
+/// ein [BefehlszeilenFehler].
 Future<String?> _echteBefehlszeile(int pid) async {
+  final ProcessResult r;
   try {
-    final r = await Process.run('ps', ['-p', '$pid', '-o', 'args=']);
-    final zeile = (r.stdout as String).trim();
-    return r.exitCode == 0 && zeile.isNotEmpty ? zeile : null;
+    r = await Process.run('ps', ['-p', '$pid', '-o', 'args=']);
   } on ProcessException {
-    return null;
+    throw const BefehlszeilenFehler();
   }
+  final zeile = (r.stdout as String).trim();
+  if (r.exitCode == 0 && zeile.isNotEmpty) return zeile;
+  if (r.exitCode == 1 && zeile.isEmpty) return null;
+  throw const BefehlszeilenFehler();
 }

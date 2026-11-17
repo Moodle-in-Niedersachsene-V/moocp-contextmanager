@@ -341,9 +341,7 @@ class LokalerSpeicher extends Kontextspeicher {
       bytes = await File(ziel).readAsBytes();
     } on FileSystemException {
       await _entferneNamen(ziel);
-      throw KontextFehler(
-        "'$von' cannot be read after the move; nothing was moved.",
-      );
+      throw KontextFehler("'$von' cannot be read after the move; nothing was moved.");
     }
     if (_version(bytes) != erwartet) {
       await _entferneNamen(ziel);

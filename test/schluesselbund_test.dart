@@ -139,9 +139,7 @@ void main() {
   test('speichern: Steuerzeichen (Zeilenende) in Passwort oder Konto werden vor dem Werkzeug abgewiesen', () async {
     final marker = p.join(ordner.path, 'gestartet');
     final datei = File(p.join(ordner.path, 'werkzeug'));
-    await datei.writeAsString(
-      '#!/bin/sh\ntouch "$marker"\ncat > /dev/null\nexit 0\n',
-    );
+    await datei.writeAsString('#!/bin/sh\ntouch "$marker"\ncat > /dev/null\nexit 0\n');
     Process.runSync('chmod', ['755', datei.path]);
     final schluesselbund = SystemSchluesselbund(werkzeug: datei.path);
 
@@ -161,11 +159,7 @@ void main() {
         ),
       );
     }
-    expect(
-      File(marker).existsSync(),
-      isFalse,
-      reason: 'das Werkzeug läuft nie',
-    );
+    expect(File(marker).existsSync(), isFalse, reason: 'das Werkzeug läuft nie');
   });
 
   test('ein leerer Eintrag zählt als fehlend', () async {

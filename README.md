@@ -63,7 +63,7 @@ ersten Start ohne Einstellungen und, wenn der Kontextbereich nicht antwortet.
 Die KI kann es mit `context_settings` öffnen; sie sieht und setzt dabei keine
 Werte. Das Fenster schließt sich, wenn das Plugin endet. Blieb nach einem
 Absturz ein altes Fenster stehen, beendet der nächste Start es, bevor er ein
-neues öffnet; die Pid steht in `fenster.pid` im Datenordner.
+neues öffnet.
 
 Im Fenster wählt die Lehrkraft:
 

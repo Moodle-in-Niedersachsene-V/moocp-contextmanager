@@ -73,7 +73,10 @@ Einstellungen pruefeEinrichtung(Einrichtung e) {
   }
   final benutzer = e.benutzer.trim();
   if (benutzer.isEmpty) {
-    throw const EinrichtungsFehler('benutzer', 'Bitte den Benutzer eintragen.');
+    throw const EinrichtungsFehler(
+      'benutzer',
+      'Bitte den Benutzer eintragen.',
+    );
   }
   return Einstellungen.webdav(adresse: geprueft, benutzer: benutzer);
 }
@@ -114,9 +117,7 @@ Future<Verbindungsergebnis> pruefeVerbindung(
   }
   final eingetragen = e.passwort;
   final Schluesselbund pruefer =
-      einstellungen.art == 'webdav' &&
-          eingetragen != null &&
-          eingetragen.isNotEmpty
+      einstellungen.art == 'webdav' && eingetragen != null && eingetragen.isNotEmpty
       ? _EinmalPasswort(einstellungen.konto, eingetragen)
       : schluesselbund;
   try {
@@ -156,19 +157,13 @@ class _EinmalPasswort implements Schluesselbund {
 
   @override
   Future<void> speichere(String konto, String geheimnis) async {
-    throw const KontextFehler(
-      'This check does not write; nothing was written.',
-    );
+    throw const KontextFehler('This check does not write; nothing was written.');
   }
 }
 
 /// Das Ergebnis des Speicherns: [feld] nennt das Feld bei einer ungültigen Eingabe.
 class Speicherergebnis {
-  const Speicherergebnis({
-    required this.gespeichert,
-    required this.meldung,
-    this.feld,
-  });
+  const Speicherergebnis({required this.gespeichert, required this.meldung, this.feld});
 
   final bool gespeichert;
   final String meldung;
@@ -189,11 +184,7 @@ Future<Speicherergebnis> speichereEinrichtung(
   try {
     einstellungen = pruefeEinrichtung(e);
   } on EinrichtungsFehler catch (f) {
-    return Speicherergebnis(
-      gespeichert: false,
-      feld: f.feld,
-      meldung: f.meldung,
-    );
+    return Speicherergebnis(gespeichert: false, feld: f.feld, meldung: f.meldung);
   }
   final eingetragen = e.passwort;
   try {
@@ -231,7 +222,10 @@ const _meldungen = <(String, String)>[
     'could not be stored',
     'Das Passwort konnte nicht im Schlüsselbund gespeichert werden. Nichts wurde geschrieben.',
   ),
-  ('The context root folder does not exist.', 'Der Ordner existiert nicht.'),
+  (
+    'The context root folder does not exist.',
+    'Der Ordner existiert nicht.',
+  ),
   (
     'The context root folder cannot be read.',
     'Der Ordner kann nicht gelesen werden.',
