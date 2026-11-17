@@ -19,14 +19,13 @@ ZIEL="${1:-$ORDNER/build/context}"
 DART="${DART:-dart}"
 FLUTTER="${FLUTTER:-flutter}"
 
-# Das Einstellungsfenster gibt es bisher nur für Linux (fenster/linux). Auf dem
-# Mac fehlt fenster/macos: Dort wird das Plugin ohne Fenster gebaut, und das
-# Skript sagt es. BAUEN_SYSTEM überschreibt das System (nur zum Prüfen des Zweigs).
+# Das Einstellungsfenster gibt es nur für Linux. Auf dem Mac wird das Plugin
+# ohne Fenster gebaut, und das Skript sagt es. BAUEN_SYSTEM überschreibt das System (nur zum Prüfen des Zweigs).
 SYSTEM="${BAUEN_SYSTEM:-$(uname -s)}"
 FENSTER_BAUEN=1
 if [[ "$SYSTEM" != Linux ]]; then
   FENSTER_BAUEN=0
-  echo 'WARNUNG: Das Einstellungsfenster gibt es auf diesem System noch nicht (fenster/macos fehlt). Das Plugin wird ohne Fenster gebaut; die Einrichtung ist dann nur von Hand möglich.' >&2
+  echo 'WARNUNG: Auf diesem System gibt es kein Einstellungsfenster (nur Linux). Das Plugin wird ohne Fenster gebaut; die Einrichtung ist dann nur von Hand möglich.' >&2
 fi
 
 # Ohne jq: der Text hinter "programm" in plugin.json.
@@ -54,9 +53,10 @@ cd "$ORDNER"
 # flutter es baut; das Plugin startet das Programm darin (standardFensterProgramm).
 if [[ "$FENSTER_BAUEN" == 1 ]]; then
   (cd "$ORDNER/fenster" && "$FLUTTER" build linux --release)
-  FENSTER_BUENDEL="$ORDNER/fenster/build/linux/x64/release/bundle"
-  if [[ ! -x "$FENSTER_BUENDEL/kontext_einstellungen" ]]; then
-    echo "Das Einstellungsfenster fehlt nach dem Bauen: $FENSTER_BUENDEL" >&2
+  # Der Ordner heißt nach der Architektur (x64, arm64): der erste Treffer zählt.
+  FENSTER_BUENDEL="$(ls -d "$ORDNER"/fenster/build/linux/*/release/bundle 2>/dev/null | head -n 1 || true)"
+  if [[ -z "$FENSTER_BUENDEL" || ! -x "$FENSTER_BUENDEL/kontext_einstellungen" ]]; then
+    echo "Das Einstellungsfenster fehlt nach dem Bauen: $ORDNER/fenster/build/linux/*/release/bundle" >&2
     rm -f "$ZIEL/$PROGRAMM.neu"
     exit 1
   fi

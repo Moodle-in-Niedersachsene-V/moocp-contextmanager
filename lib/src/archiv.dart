@@ -5,9 +5,11 @@ import 'ort.dart';
 import 'pfad.dart';
 import 'speicher.dart';
 
-/// Die Freigabestufe der Archivierung: wie bei einer neuen Datei (Spec #10). Die
-/// Verschiebung ist keine Art der Änderung von Art.dart; sie fragt auf Stufe „alle“.
-const archivStufe = Freigabestufe.alle;
+/// Die Freigabestufe der Archivierung: wie bei einer neuen Datei (E6). Die
+/// Verschiebung ist keine Art der Änderung von Art.dart. Aus dem Wurzelordner
+/// fragt sie wie jede Datei dort schon ab Stufe „mittel“ (E1).
+Freigabestufe archivStufeFuer({required bool ausWurzelordner}) =>
+    freigabestufeFuer(Art.newFile, imWurzelordner: ausWurzelordner);
 
 /// Der Zielordner eines Projekts: `<Ordner>/archive/`. Nur dorthin wird verschoben.
 const archivOrdner = 'archive';
@@ -21,7 +23,7 @@ class _Verschiebung {
   final Inhalt inhalt;
 }
 
-/// Verschiebt Dateien eines Projektordners nach `<ordner>/archive/` (Spec #10).
+/// Verschiebt Dateien eines Projektordners nach `<ordner>/archive/`.
 /// Nichts wird gelöscht und nichts überschrieben: Existiert ein Ziel, wird vorher
 /// nichts verschoben. Die Reihenfolge ist: prüfen, fragen, Stand erneut prüfen,
 /// verschieben, zurücklesen. Journale wandern nie. Antwortet der Ort nicht, wird
@@ -74,7 +76,7 @@ Future<String> archiviere({
           'Art: Archivierung (wie eine neue Datei)\n'
           '${[for (final v in vorher) '${v.von} -> ${v.nach}'].join('\n')}\n\n'
           '$zusammenfassung',
-      ab: archivStufe,
+      ab: archivStufeFuer(ausWurzelordner: ordnerTeile.isEmpty),
     );
     switch (ausgang) {
       case Freigabeausgang.freigegeben:

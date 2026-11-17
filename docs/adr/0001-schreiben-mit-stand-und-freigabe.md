@@ -6,17 +6,19 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md).
 
 **Stand.** Schreiben (`context_write`, `context_append`) verlangt die Version, die die KI gelesen hat. Stimmt sie nicht mehr, bricht der Vorgang mit einem Konflikt ab und fragt niemanden. Eine bestehende Datei wird nur mit `version` ersetzt; ohne `version` entsteht eine Datei nur, wenn es sie noch nicht gibt. Anhängen mit `version` verlangt dieselbe Prüfung.
 
-**Freigabe.** Vor dem Schreiben fragt das Plugin über die Adresse der App (E35). Die Stufe, ab der gefragt wird, folgt aus der Art der Änderung: Journaleintrag, Nacharbeit und neue Datei ab Stufe „alle“; Planänderung und Planergänzung ab Stufe „mittel“. Eine Datei direkt am Wurzelordner wird immer mindestens auf Stufe „mittel“ gefragt, unabhängig von der Art. Die Stand-Prüfung läuft vor der Frage und nochmals nach ihr, weil die Lehrkraft sich Zeit lassen kann.
+**Freigabe.** Vor dem Schreiben fragt das Plugin über die Adresse der App (E35). Die Stufe, ab der gefragt wird, folgt aus der Art der Änderung: Journaleintrag, Nacharbeit und neue Datei ab Stufe „alle“ (ebenso die Archivierung, E6); Planänderung und Planergänzung ab Stufe „mittel“. Eine Datei direkt am Wurzelordner wird immer mindestens auf Stufe „mittel“ gefragt, unabhängig von der Art. Die Stand-Prüfung läuft vor der Frage und nochmals nach ihr, weil die Lehrkraft sich Zeit lassen kann.
 
 **Rücklesen.** Nach jedem Schreiben liest das Plugin die Datei zurück. Nur bei Gleichheit meldet es `verified`; das Urteil fällt das Werkzeug.
 
-**Journal.** Journale werden nur angehängt, nie ersetzt, und nie verschoben. Dazu gehören Dateien unter einem Ordner `journal/` auf jeder Ebene (etwa `<projekt>/journal/`) und `journal-*.md` auf jeder Ebene (altes Coursepilot-Journal). Die Bindung hängt am Pfad und gilt für jede Art.
+**Journal.** Journale werden nur angehängt, nie ersetzt, und nie verschoben. Dazu gehören Dateien unter einem Ordner `journal/` auf jeder Ebene (etwa `<projekt>/journal/`) und `journal-*.md` auf jeder Ebene (altes Coursepilot-Journal). Die Bindung hängt am Pfad und gilt für jede Art. Umgekehrt ist die Art `journal` nur für eine Journaldatei zulässig; sonst würde eine Änderung an einer Plandatei auf Stufe „alle“ gefragt und auf Stufe „mittel“ nie.
 
 **Geltungsbereich.** Geschrieben werden nur `.md`-Dateien innerhalb der Wurzel. Steuerzeichen im Pfad sind ungültig. Eine leere oder zu lange Zusammenfassung wird vor der Freigabe abgewiesen.
 
 **Namen.** Argumente der Werkzeuge heißen auf Deutsch (`pfad`, `inhalt`, `zusammenfassung`, `version`), wie die Argumente in moocp. Die Werte von `art` sind englische Kennungen, weil sie Teil der englischen Beschreibung sind.
 
-**Bekannte Grenze.** `art` gibt die KI an. Ordnet sie eine Änderung falsch ein, fragt moocp auf der falschen Stufe; E20 schützt nur so weit, wie die Art stimmt. Die Bindung des Journals an den Pfad und die Freigabe für Dateien am Wurzelordner sind davon unabhängig.
+**Bekannte Grenze.** `art` gibt die KI an. Ordnet sie eine Änderung falsch ein, fragt moocp auf der falschen Stufe; die Stufen selbst stehen in E20 von moocp, und das Plugin schützt nur so weit, wie die Art stimmt. Die Bindung des Journals an den Pfad und die Freigabe für Dateien am Wurzelordner sind davon unabhängig.
+
+Am lokalen Ordner schreibt das Plugin die Datei selbst, ohne Zwischendatei. Bricht der Vorgang mitten im Schreiben ab, kann die Datei abgeschnitten zurückbleiben; Sync-Clients können solche Zwischenstände übertragen.
 
 ## Verworfen
 

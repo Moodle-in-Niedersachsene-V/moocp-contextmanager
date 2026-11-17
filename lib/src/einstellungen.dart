@@ -5,9 +5,9 @@ import 'package:path/path.dart' as p;
 
 import 'fehler.dart';
 
-/// Wo der Kontextbereich liegt. Die Datei schreibt bis zum Einstellungsfenster
-/// von Hand, wer das Plugin einrichtet. Das Passwort eines WebDAV-Speichers
-/// liegt nie in dieser Datei, sondern im Schlüsselbund (ADR 0004).
+/// Wo der Kontextbereich liegt. Das Einstellungsfenster schreibt die Datei; das
+/// Plugin liest sie nur. Das Passwort eines WebDAV-Speichers liegt nie in dieser
+/// Datei, sondern im Schlüsselbund (ADR 0004).
 class Einstellungen {
   const Einstellungen._({
     required this.art,

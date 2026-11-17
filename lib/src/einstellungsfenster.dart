@@ -116,5 +116,17 @@ String standardFensterProgramm() {
   return p.join(ordner, 'einstellungsfenster', 'kontext_einstellungen');
 }
 
-Future<Process> _echtStarten(String programm, List<String> argumente) =>
-    Process.start(programm, argumente);
+const _schluesselVariable = 'MOOCP_PLUGIN_SCHLUESSEL';
+
+/// Das Fenster erbt die Umgebung ohne den Schlüssel des Plugins: es braucht ihn
+/// nicht, und er gehört nicht in einen zweiten Prozess (A1).
+Future<Process> _echtStarten(String programm, List<String> argumente) {
+  final umgebung = Map<String, String>.of(Platform.environment)
+    ..remove(_schluesselVariable);
+  return Process.start(
+    programm,
+    argumente,
+    environment: umgebung,
+    includeParentEnvironment: false,
+  );
+}

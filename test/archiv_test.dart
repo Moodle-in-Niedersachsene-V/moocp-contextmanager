@@ -1,6 +1,7 @@
-// Tests am MCP-Seam für context_archive (Spec #10): Dateien eines Ordners wandern
+// Tests am MCP-Seam für context_archive: Dateien eines Ordners wandern
 // nach `<Ordner>/archive/`. Nie gelöscht, nie überschrieben, Journale bleiben, und
-// jede Verschiebung braucht die Freigabe wie eine neue Datei (Stufe „alle“).
+// jede Verschiebung braucht die Freigabe wie eine neue Datei (Stufe „alle“, aus
+// dem Wurzelordner „mittel“).
 import 'dart:io';
 
 import 'package:path/path.dart' as pfad;
@@ -110,6 +111,16 @@ void _tests(Ortsart art) {
       expect(ergebnis['isError'], isNot(true), reason: PluginProzess.text(ergebnis));
       expect(da('archive/CONTEXT.md'), isTrue);
       expect(da('CONTEXT.md'), isFalse);
+    });
+
+    test('aus dem Wurzelordner wird schon auf Stufe „mittel“ gefragt', () async {
+      await schreibe('CONTEXT.md', 'Ebene\n');
+      final p = await laufendesPlugin(stufe: 'mittel');
+      final ergebnis = await archiv(p, ordner: '', dateien: ['CONTEXT.md']);
+      expect(ergebnis['isError'], isNot(true), reason: PluginProzess.text(ergebnis));
+      expect(p.app.freigaben, hasLength(1));
+      expect(p.app.freigaben.single['ab'], 'mittel');
+      expect(da('archive/CONTEXT.md'), isTrue);
     });
   });
 

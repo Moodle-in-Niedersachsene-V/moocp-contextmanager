@@ -361,6 +361,28 @@ void _tests(Ortsart art) {
     );
 
     test(
+      'art journal wird für eine Datei außerhalb von journal/ auch beim Anhängen abgewiesen',
+      () async {
+        // Sonst fragt Stufe mittel nicht: journal fragt erst auf Stufe alle.
+        await schreibeDatei('plan.md', 'hallo\n');
+        final p = await laufendesPlugin(stufe: 'mittel');
+        final ergebnis = await p.werkzeug(
+          'context_append',
+          schreiben(
+            pfadArg: 'plan.md',
+            inhalt: 'Eintrag\n',
+            art: 'journal',
+            version: versionHallo,
+          ),
+        );
+        expect(ergebnis['isError'], isTrue);
+        expect(PluginProzess.text(ergebnis), contains('journal'));
+        expect(await File(datei('plan.md')).readAsString(), 'hallo\n');
+        expect(p.app.freigaben, isEmpty);
+      },
+    );
+
+    test(
       'bricht mit Konflikt ab, wenn die Datei seit dem Lesen geändert wurde',
       () async {
         await schreibeDatei('notizen.md', 'anders\n');

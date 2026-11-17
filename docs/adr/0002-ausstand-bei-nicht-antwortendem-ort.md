@@ -4,7 +4,7 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md).
 
 ## Entscheidung
 
-**Was in den Ausstand kommt.** Ein gültiger Schreibauftrag (`context_write`, `context_append`), dessen Ort nicht antwortet: Die Wurzel fehlt oder ist nicht lesbar. Konflikte, Abweisungen (Pfad, Art, Zusammenfassung, Journal) und Fehler der Einstellungen kommen nie in den Ausstand; sie werden wie bisher gemeldet.
+**Was in den Ausstand kommt.** Ein gültiger Schreibauftrag (`context_write`, `context_append`), dessen Ort nicht antwortet: Die Wurzel fehlt oder ist nicht lesbar. Konflikte, Abweisungen (Pfad, Art, Zusammenfassung, Journal) und Fehler der Einstellungen kommen nie in den Ausstand; sie werden sofort gemeldet.
 
 **Wo.** Im Datenordner des Plugins, im Ordner `ausstand/` neben der Einstellungsdatei. Je Vorgang eine JSON-Datei mit Kennung, Zeitpunkt (UTC), Ziel, Art, Zusammenfassung, Inhalt, erwarteter Version und der Angabe, ob angehängt wird. Geschrieben wird über eine temporäre Datei und ein Umbenennen. Der Ausstand liegt nie in der Wurzel: Kein Werkzeug liest ihn als Kontext. Ordner und Dateien sind nur für die Benutzerin lesbar (POSIX: 0700 und 0600), damit die Vorgänge nicht über das Konto anderer Nutzer sichtbar werden.
 

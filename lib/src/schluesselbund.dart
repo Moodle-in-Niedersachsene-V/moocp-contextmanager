@@ -4,7 +4,7 @@ import 'dart:io';
 import 'fehler.dart';
 
 /// Das Passwort eines entfernten Speichers aus dem Schlüsselbund des Systems
-/// (ADR 0004). Das Plugin liest nur; eingetragen wird es im Einstellungsfenster.
+/// (ADR 0004). Der MCP-Server liest nur; geschrieben wird es vom Einstellungsfenster.
 abstract class Schluesselbund {
   /// Das Passwort zu [konto]. Fehlt es oder ist der Schlüsselbund nicht
   /// erreichbar, wirft es mit dem Grund. Es gibt keinen Ersatz über eine Datei.

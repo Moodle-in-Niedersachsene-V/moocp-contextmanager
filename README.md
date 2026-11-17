@@ -38,11 +38,6 @@ spricht es über den MCP-Server von moocp an. Der Skill `context` führt die KI
 durch diese Werkzeuge: er verlangt, dass ein freigegebener Plan vor jedem
 Schreiben in Moodle im Kontextbereich steht und geprüft ist.
 
-Jede Sitzung beginnt mit `context_start`: Es sagt in einer Antwort, ob der
-Kontextbereich antwortet, welche Schreibvorgänge noch nicht gespeichert sind,
-und gibt den Wurzelindex und die Wurzelgewohnheiten. Antwortet der Ort nicht,
-bleibt ein Schreibvorgang mit seinem Inhalt erhalten und wird später nachgetragen.
-
 ## Benutzerhandbuch
 
 ### Installation
@@ -149,7 +144,8 @@ erkennt das Plugin nicht.
 `context_archive` verschiebt die genannten Dateien eines Ordners nach
 `<Ordner>/archive/`. Die KI nennt den Ordner und die Dateinamen direkt darin; sie
 kann nichts außerhalb des Ordners erreichen. Die Lehrkraft gibt die Verschiebung
-frei, wie eine neue Datei (Stufe „alle“).
+frei, wie eine neue Datei: auf Stufe „alle“, für Dateien im Wurzelordner schon auf
+Stufe „mittel“.
 
 Existiert eine Datei schon im Zielordner, wird nichts verschoben und nicht
 gefragt. Ändert sich eine Datei zwischen Frage und Verschieben, bricht die
@@ -163,9 +159,9 @@ Die KI schreibt nur `.md`-Dateien innerhalb des Kontextbereichs. Welche
 Änderungen moocp der Lehrkraft zur Freigabe vorlegt, richtet sich nach der
 Freigabestufe in moocp:
 
-- Stufe „alle“: jede Änderung, auch Journaleinträge und Nacharbeiten.
-- Stufe „mittel“: Planänderungen, Planergänzungen, neue Dateien direkt im Wurzelordner des Kontextbereichs.
-- Stufe „keine“: keine dieser Änderungen.
+- Stufe „alle“: jede Änderung, auch Journaleinträge, Nacharbeiten und neue Dateien.
+- Stufe „mittel“: zusätzlich Planänderungen, Planergänzungen und Dateien direkt im Wurzelordner des Kontextbereichs.
+- Stufe „keine“: keine dieser Änderungen. Der Wegweiser wird auf jeder Stufe gefragt.
 
 Eine abgelehnte oder abgebrochene Freigabe schreibt nichts, und die Antwort sagt
 es. Die Datei wird nie überschrieben, wenn sie sich seit dem Lesen geändert hat.
@@ -221,32 +217,35 @@ den Vorgang nicht an den neuen Ort, sondern meldet ihn und lässt ihn stehen.
 
 ### Aufbau
 
+Die Zahlen E1 bis E8 verweisen auf die [Entscheidungen in `docs/adr/`](docs/adr/).
+E20 und E35 sind Entscheidungen von moocp.
+
 - `bin/context.dart`: Start nach den Regeln von moocp (Port auf der
   Kommandozeile, Schlüssel aus `MOOCP_PLUGIN_SCHLUESSEL`, Ende mit der
   Standardeingabe).
 - `skills/context/`: der Skill für die KI (`SKILL.md`, Ablauf und Regeln, auf Englisch; `references/layout.md`: Dateilayout). Er nennt nur Werkzeuge und Arten, die das Plugin kennt; `test/skill_test.dart` prüft das und die Beschreibungsdatei (`skills`) und das Bauen.
 - `lib/src/inhaltsverzeichnis.dart`: Lesen von Dateien über 100 Zeilen: Inhaltsverzeichnis, Abschnitt über die Überschrift, ganze Datei nur auf Bitte.
 - `lib/src/start.dart`: `context_start`, die Startantwort mit Lage, Ausstand, Konfliktkopien und Wurzeldateien (altes Layout: `CONTEXT.md` als Index).
-- `lib/src/konflikt.dart`: Namensmuster der Konfliktkopien von Sync-Clients und die Suche im Kontextbereich (E7).
-- `lib/src/archiv.dart`: `context_archive`: Verschieben nach `archive/` mit Prüfung, Freigabe und Rücklesen (E6).
-- `lib/src/wegweiser.dart`: `context_link`: Format von `CONTEXT-LINK.md`, Prüfung der Einträge, Zusammenführen und Schreiben im gewählten Ordner (E5). Die einzige Schreibstelle außerhalb der Wurzel.
-- `lib/src/ausstand.dart`: Ausstand im Datenordner (eine Datei je Vorgang) und die Wiederholung mit Stand-Prüfung und Freigabe (E2).
+- `lib/src/konflikt.dart`: Namensmuster der Konfliktkopien von Sync-Clients und die Suche im Kontextbereich ([E7](docs/adr/0007-konfliktkopien-melden.md)).
+- `lib/src/archiv.dart`: `context_archive`: Verschieben nach `archive/` mit Prüfung, Freigabe und Rücklesen ([E6](docs/adr/0006-altes-layout-und-archiv.md)).
+- `lib/src/wegweiser.dart`: `context_link`: Format von `CONTEXT-LINK.md`, Prüfung der Einträge, Zusammenführen und Schreiben im gewählten Ordner ([E5](docs/adr/0005-wegweiser-im-materialordner.md)). Die einzige Schreibstelle außerhalb der Wurzel.
+- `lib/src/ausstand.dart`: Ausstand im Datenordner (eine Datei je Vorgang) und die Wiederholung mit Stand-Prüfung und Freigabe ([E2](docs/adr/0002-ausstand-bei-nicht-antwortendem-ort.md)).
 - `lib/src/schreibauftrag.dart`: ein Schreibauftrag, sein Schreiben und seine Freigabe; gemeinsam für neue Schreibvorgänge und die Wiederholung.
 - `lib/src/speicher.dart`: der Kontextbereich als Schnittstelle (`Kontextspeicher`) mit
   Lesen, Schreiben, Anhängen, Verschieben und Stand-Prüfung. Der lokale Ordner
   (`LokalerSpeicher`) löst Verknüpfungen auf und prüft jeden Pfad gegen die Wurzel.
 - `lib/src/webdav.dart`: der WebDAV-Server als zweiter Ort (`WebDavSpeicher`): ETag
-  als Version, bedingtes Schreiben (E3), Zeitlimit und Ausfall.
+  als Version, bedingtes Schreiben ([E3](docs/adr/0003-webdav-version-und-bedingtes-schreiben.md)), Zeitlimit und Ausfall.
 - `lib/src/pfad.dart`: die Pfadregeln für beide Orte.
 - `lib/src/ort.dart`: der Zugang zum Ort aus den Einstellungen (jedes Mal neu gelesen).
-- `lib/src/schluesselbund.dart`: das Passwort aus dem Schlüsselbund über die Werkzeuge des Systems (E4).
-- `lib/src/art.dart`: Arten der Änderung und ihre Freigabestufe (E20).
-- `lib/src/app.dart`: Freigaben über die Adresse der App für Plugins (E35).
+- `lib/src/schluesselbund.dart`: das Passwort aus dem Schlüsselbund über die Werkzeuge des Systems ([E4](docs/adr/0004-schluesselbund-und-verbindung.md)).
+- `lib/src/art.dart`: Arten der Änderung und ihre Freigabestufe (E20 von moocp).
+- `lib/src/app.dart`: Freigaben über die Adresse der App für Plugins (E35 von moocp).
 - `lib/src/einstellungen.dart`: Einstellungsdatei für beide Orte und Prüfung der Adresse.
 - `lib/src/werkzeuge.dart`: die MCP-Werkzeuge.
 - `lib/src/server.dart`: MCP-Server auf `127.0.0.1` mit Schlüsselprüfung.
-- `lib/src/einrichtung.dart`: die Einrichtung aus dem Fenster: Eingabe prüfen, Verbindung prüfen, speichern (Schlüsselbund vor Datei) und die deutschen Meldungen (E8).
-- `lib/src/einstellungsfenster.dart`: Start des Fensters: beim ersten Start ohne Einstellungen, einmal je Ausfall, auf Wunsch der KI (`context_settings`) (E8).
+- `lib/src/einrichtung.dart`: die Einrichtung aus dem Fenster: Eingabe prüfen, Verbindung prüfen, speichern (Schlüsselbund vor Datei) und die deutschen Meldungen ([E8](docs/adr/0008-einstellungsfenster.md)).
+- `lib/src/einstellungsfenster.dart`: Start des Fensters: beim ersten Start ohne Einstellungen, einmal je Ausfall, auf Wunsch der KI (`context_settings`) ([E8](docs/adr/0008-einstellungsfenster.md)).
 - `fenster/`: das Einstellungsfenster als eigenes Flutter-Programm (Material 3, moocps Grundfarbe, `window_manager`). Es benutzt das Plugin über den Pfad `..`; `bauen.sh` legt es als `einstellungsfenster/` in den Plugin-Ordner.
 - `plugin.json`: Beschreibungsdatei für moocp.
 
@@ -270,23 +269,12 @@ auf und arbeiten in einem temporären Ordner. `test/harness.dart` stellt
 `PluginProzess` bereit: Start mit Port und Schlüssel, `werkzeug` für den
 Aufruf eines Werkzeugs mit Token, und `app` (`FakeApp`): eine falsche Adresse
 der App, die Freigaben nach der Stufe der Lehrkraft beantwortet und jede
-Anfrage zählt. Die Tests für Lesen und Einstellungen stehen in
-`test/context_plugin_test.dart`, die für lange Dateien in
-`test/inhaltsverzeichnis_test.dart`, die für Schreiben in `test/schreiben_test.dart`,
-die für den Start in `test/start_test.dart`, für das alte Layout in
-`test/altes_layout_test.dart`, für Konfliktkopien in `test/konfliktkopien_test.dart`,
-für das Archivieren in `test/archiv_test.dart`, für den Ausstand in
-`test/ausstand_test.dart`, für den Wegweiser in `test/wegweiser_test.dart` und die
-Prüfungen aus dem Review von #7 in `test/pruefung7_test.dart`. Die Einrichtung
-(Schreiben der Datei, Prüfung der Eingabe, Verbindung, Speichern und die
-deutschen Meldungen) steht in `test/einrichtung_test.dart`, der Schlüsselbund
-zum Schreiben in `test/schluesselbund_test.dart`, das Starten des Fensters in
-`test/einstellungsfenster_test.dart` und am MCP-Seam in
-`test/einstellungsfenster_mcp_test.dart`. Das Fenster selbst prüft
-`fenster/test/einstellungs_seite_test.dart` mit `flutter test` im Ordner
-`fenster/`; dort ersetzen Fakes die Logik des Plugins. Ein Ausfall des Ortes simulieren die Tests, indem sie
-den Wurzelordner entfernen, am WebDAV-Ort stoppen sie den Server (`ausfallen`).
-Tests, die nur am lokalen Ordner Sinn haben (Verknüpfungen), sind dort übersprungen.
+Anfrage zählt. Die Tests liegen je Werkzeug oder Thema in `test/`. Das
+Einstellungsfenster prüft `fenster/test/` mit `flutter test` im Ordner `fenster/`;
+dort ersetzen Fakes die Logik des Plugins. Ein Ausfall des Ortes simulieren die
+Tests, indem sie den Wurzelordner entfernen, am WebDAV-Ort stoppen sie den Server
+(`ausfallen`). Tests, die nur am lokalen Ordner Sinn haben (Verknüpfungen), sind
+dort übersprungen.
 
 ### Entwickeln
 
@@ -295,5 +283,5 @@ Port `entwicklungsPort` aus `plugin.json` mit `--entwicklung` und startet moocp
 mit `--plugin-entwicklung`. Das Plugin läuft dann, bis der Entwickler es beendet.
 Das Einstellungsfenster öffnet es aus `build/context/einstellungsfenster`, wenn
 `bauen.sh` das schon getan hat.
-Auf dem Mac baut `bauen.sh` das Plugin ohne Einstellungsfenster und warnt dabei:
-für den Mac fehlt noch `fenster/macos`.
+Das Einstellungsfenster gibt es nur für Linux. Auf dem Mac baut `bauen.sh` das
+Plugin ohne Fenster und warnt dabei.

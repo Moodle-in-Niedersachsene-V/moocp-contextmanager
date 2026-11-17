@@ -12,8 +12,8 @@ Every level has an `index.md`. It only points: to the levels below it and to the
 
 ## Files
 
-- `habits.md`: how the teacher works, for example how she addresses students or builds questions. Also the write mode (see SKILL.md).
-- `glossary.md`: terms with their meaning in her teaching.
+- `habits.md`: how the teacher works, for example how the teacher addresses students or builds questions. Also the write mode (see SKILL.md).
+- `glossary.md`: terms with their meaning in the teacher's teaching.
 - `decisions/`: one short file per decision. It states the situation, the choice, and the reason. Only for surprising decisions with a real alternative.
 - `plan.md`: the target state of the unit, ordered by weeks or course sections. It never grows by date. Above 100 lines, split it: `plan/index.md` holds an overview and one file per week or section.
 - `journal/YYYY-MM-DD.md`: one file per day. Entries are appended with `context_append`, never replaced.

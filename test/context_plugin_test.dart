@@ -67,6 +67,25 @@ void _tests(Ortsart art) {
       },
     );
 
+    test(
+      'eine Adresse der App außerhalb dieses Rechners wird nicht benutzt',
+      () async {
+        // Der Schlüssel des Plugins geht nur an moocp auf diesem Rechner (A1).
+        plugin = await PluginProzess.starten(ordner: ordner, ort: art);
+        await plugin!.initialisieren(adresse: 'http://203.0.113.7:9');
+        final ergebnis = await plugin!.werkzeug('context_write', {
+          'pfad': 'notizen.md',
+          'inhalt': 'hallo\n',
+          'art': 'new_file',
+          'zusammenfassung': 'Kurze Zusammenfassung.',
+        });
+        expect(ergebnis['isError'], isTrue);
+        expect(PluginProzess.text(ergebnis), contains('named no address'));
+        expect(File(pfad.join(root, 'notizen.md')).existsSync(), isFalse);
+        expect(plugin!.app.freigaben, isEmpty);
+      },
+    );
+
     test('ohne Authorization-Kopf weist es ab', () async {
       final p = await laufendesPlugin();
       final ergebnis = await p.anfragen('tools/list', {}, schluessel: null);

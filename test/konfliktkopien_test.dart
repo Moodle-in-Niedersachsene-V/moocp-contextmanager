@@ -1,4 +1,4 @@
-// Tests am MCP-Seam für Konfliktkopien von Sync-Clients (Spec #74): context_list
+// Tests am MCP-Seam für Konfliktkopien von Sync-Clients: context_list
 // meldet die Konfliktkopien eines Ordners, context_start die im ganzen Kontextbereich.
 // Jede Meldung nennt beide Dateinamen. Das Plugin löscht und ändert nichts.
 // Die Namen sind erfunden; die Muster stehen in docs/adr/0007-konfliktkopien-melden.md.

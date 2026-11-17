@@ -25,6 +25,6 @@ Das Original ist der Name mit gleicher Endung ohne den Zusatz. Ob es im selben O
 
 ## Verworfen
 
-- Konfliktkopien automatisch zusammenführen oder löschen: Die Zusammenführung ist eine inhaltliche Entscheidung der Lehrkraft, und das Plugin darf nichts löschen (A3, Spec #74).
+- Konfliktkopien automatisch zusammenführen oder löschen: Die Zusammenführung ist eine inhaltliche Entscheidung der Lehrkraft, und das Plugin darf nichts löschen (A3).
 - Konfliktkopien im Verzeichnis verstecken: Die Lehrkraft soll sie sehen, bevor zwei Fassungen unbemerkt bleiben.
 - Nach Dateiinhalten vergleichen: Ein Vergleich liest jede Datei; die Namen genügen für die Meldung.

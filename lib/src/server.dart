@@ -73,5 +73,10 @@ McpServer _mcpServer(
 Uri? _adresseDerApp(McpServer server) {
   final moocp = server.server.getClientCapabilities()?.experimental?['moocp'];
   final adresse = moocp is Map ? moocp['adresse'] : null;
-  return adresse is String ? Uri.tryParse(adresse) : null;
+  final uri = adresse is String ? Uri.tryParse(adresse) : null;
+  // moocp läuft auf diesem Rechner (A1). Eine andere Adresse bekäme den
+  // Schlüssel des Plugins und das Token des Aufrufs nicht.
+  const schleife = {'127.0.0.1', 'localhost', '::1'};
+  if (uri == null || !schleife.contains(uri.host)) return null;
+  return uri;
 }

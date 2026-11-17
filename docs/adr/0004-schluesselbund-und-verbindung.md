@@ -4,7 +4,7 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md).
 
 ## Entscheidung
 
-**Passwort.** Das Passwort eines WebDAV-Speichers liegt im Schlüsselbund des Systems. Das Plugin liest es über dessen Werkzeuge: `secret-tool lookup` (Linux, libsecret) und `security find-generic-password -w` (macOS). Dienstname `moocp-contextmanager`, Konto `Benutzer@Adresse`. Das Plugin schreibt nie in den Schlüsselbund; eingetragen wird es im Einstellungsfenster.
+**Passwort.** Das Passwort eines WebDAV-Speichers liegt im Schlüsselbund des Systems. Das Plugin liest es über dessen Werkzeuge: `secret-tool lookup` (Linux, libsecret) und `security find-generic-password -w` (macOS). Dienstname `moocp-contextmanager`, Konto `Benutzer@Adresse`. Der MCP-Server liest nur. Eingetragen wird das Passwort vom Einstellungsfenster (E8), nie vom MCP-Server.
 
 **Kein Ersatz.** Fehlt das Werkzeug, der Eintrag oder ist der Schlüsselbund gesperrt, ist das ein Fehler mit Grund. Das Passwort wird dann nie aus einer Datei, einer Umgebungsvariablen oder einer Eingabe der KI genommen (A6).
 

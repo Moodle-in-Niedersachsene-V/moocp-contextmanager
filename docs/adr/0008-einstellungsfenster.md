@@ -1,6 +1,6 @@
 # E8 Einstellungsfenster
 
-Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). Ergänzt E4 (Schlüsselbund) und E5 (Ordnerwahl); die Schnittstelle der App steht in E35.
+Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). Ergänzt E4 (Schlüsselbund) und E5 (Ordnerwahl); die Schnittstelle der App steht in E35 von moocp.
 
 ## Entscheidung
 
@@ -19,8 +19,10 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). 
 
 **Meldungen.** Das Fenster zeigt deutsche Meldungen. Die Übersetzung hängt an den englischen Meldungen des Plugins, und ein Test prüft jede Zuordnung gegen den echten Fehler, damit eine geänderte Meldung nicht still auf Englisch fällt. Eine unbekannte Meldung bekommt einen allgemeinen deutschen Satz ohne Rohtext.
 
-**Schlüsselbund schreiben.** Linux über `secret-tool store` mit dem Passwort auf der Standardeingabe; macOS über `security -i`, damit das Passwort nie in einer Kommandozeile steht. Die macOS-Fassung ist auf diesem Stand nicht auf einem Mac geprüft.
+**Schlüsselbund schreiben.** Linux über `secret-tool store` mit dem Passwort auf der Standardeingabe; macOS über `security -i`, damit das Passwort nie in einer Kommandozeile steht.
+
+**Plattformen.** Das Fenster gibt es nur für Linux. Auf dem Mac baut `bauen.sh` das Plugin ohne Fenster.
 
 ## Verworfen
 
-Die Dialoge der App für das Fenster: Sie können ein Feld nicht verdecken, und das Ergebnis einer Prüfung stünde nicht neben den Feldern. Ein Eintrag „Plugins“ in den Einstellungen von moocp als einziger Weg: Er gibt es noch nicht (moocp #102), und das Fenster soll auch dann öffnen, wenn moocp nicht läuft. Das Passwort in der Einstellungsdatei oder über ein KI-Werkzeug (A6). `flutter_secure_storage` im Plugin: Das Plugin ist reines Dart (E4). Ein Fenster im Plugin selbst, das es ohne Flutter baut: Die Oberfläche braucht Flutter, das Plugin nicht.
+Die Dialoge der App für das Fenster: Sie können ein Feld nicht verdecken, und das Ergebnis einer Prüfung stünde nicht neben den Feldern. Ein Eintrag „Plugins“ in den Einstellungen von moocp als einziger Weg: Die App kennt ihn nicht, und das Fenster soll auch dann öffnen, wenn moocp nicht läuft. Das Passwort in der Einstellungsdatei oder über ein KI-Werkzeug (A6). `flutter_secure_storage` im Plugin: Das Plugin ist reines Dart (E4). Ein Fenster im Plugin selbst, das es ohne Flutter baut: Die Oberfläche braucht Flutter, das Plugin nicht.

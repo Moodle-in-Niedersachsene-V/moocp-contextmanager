@@ -1,7 +1,7 @@
-// Tests zu den Hinweisen aus dem Review von #7: Antworten des WebDAV-Servers
-// (401 und 403 getrennt, Namen und Größe einer Antwort), das Wiederholen des
-// Ausstands bei einem Fehler am Ort und der Ausfall zwischen Öffnen und Stand-
-// Prüfung (am MCP-Seam, nur am WebDAV-Ort herstellbar).
+// Tests zu Antworten des WebDAV-Servers (401 und 403 getrennt, Namen und Größe
+// einer Antwort), zum Wiederholen des Ausstands bei einem Fehler am Ort und zum
+// Ausfall zwischen Öffnen und Stand-Prüfung (am MCP-Seam, nur am WebDAV-Ort
+// herstellbar).
 import 'dart:convert';
 import 'dart:io';
 

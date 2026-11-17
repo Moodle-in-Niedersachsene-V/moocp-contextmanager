@@ -404,7 +404,7 @@ class WebDavSpeicher extends Kontextspeicher {
       ).timeout(_zeitlimit);
     } on TimeoutException {
       throw const KontextNichtErreichbar(
-        'The WebDAV server did not answer in time; the write is kept as pending.',
+        'The WebDAV server did not answer in time.',
       );
     } on SocketException {
       throw const KontextNichtErreichbar(

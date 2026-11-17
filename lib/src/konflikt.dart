@@ -8,8 +8,7 @@ const konfliktHoechstTiefe = 10;
 const konfliktHoechstOrdner = 500;
 const konfliktZeitlimit = Duration(seconds: 20);
 
-/// Die Muster der Namen, die Sync-Clients für Konfliktkopien vergeben (Spec #74,
-/// ADR 0007). Jedes Muster hat als erste Gruppe den Stamm und als zweite die
+/// Die Muster der Namen, die Sync-Clients für Konfliktkopien vergeben (ADR 0007). Jedes Muster hat als erste Gruppe den Stamm und als zweite die
 /// Endung des Originals.
 final _muster = <RegExp>[
   // Syncthing: name.sync-conflict-JJJJMMTT-HHMMSS[-GERÄT].endung (Gerät optional)

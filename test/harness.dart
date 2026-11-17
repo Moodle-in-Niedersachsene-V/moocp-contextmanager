@@ -297,6 +297,7 @@ class PluginProzess {
   /// bis das Plugin antwortet.
   Future<Map<String, dynamic>> initialisieren({
     String? schluessel = testSchluessel,
+    String? adresse,
   }) async {
     final antwort = await anfragen(
       'initialize',
@@ -306,7 +307,7 @@ class PluginProzess {
           'experimental': {
             'moocp': {
               'schnittstelle': 1,
-              'adresse': 'http://127.0.0.1:${appServer.port}',
+              'adresse': adresse ?? 'http://127.0.0.1:${appServer.port}',
             },
           },
         },

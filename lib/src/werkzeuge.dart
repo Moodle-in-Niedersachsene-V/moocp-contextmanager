@@ -56,7 +56,7 @@ void registriereWerkzeuge(
             : eintraege
                   .map((e) => e.istOrdner ? '${e.name}/' : e.name)
                   .join('\n');
-        // Konfliktkopien des Ordners (Spec #74) stehen unter der Liste; nur
+        // Konfliktkopien des Ordners stehen unter der Liste; nur
         // dieser Ordner, Unterordner meldet context_start.
         final kopien = konfliktkopienIn(pfadTeile(pfad).join('/'), eintraege);
         if (kopien.isEmpty) return liste;
@@ -121,7 +121,7 @@ void registriereWerkzeuge(
         'Creates a Markdown file in the teacher\'s context area, or replaces one. '
         'Omit version only to create a new file. To replace a file, pass the version '
         'from context_read; the write stops with a conflict if the file changed since. '
-        'Whether moocp asks the teacher for approval depends on her approval level and on '
+        'Whether moocp asks the teacher for approval depends on the teacher\'s approval level and on '
         'art, the kind of change: journal, correction, plan_change, plan_addition, new_file '
         'or root_file. Files under journal/ cannot be replaced; use context_append. The write '
         'is read back before it counts as verified. If the context area does not answer, the write '
@@ -154,7 +154,7 @@ void registriereWerkzeuge(
         'journal entry. Pass the version from context_read to append to an existing file; '
         'omit it only when the file does not exist yet, and it is created. The write stops '
         'with a conflict if the file changed since it was read. Whether moocp asks the '
-        'teacher for approval depends on her approval level and on art (see context_write). '
+        'teacher for approval depends on the teacher\'s approval level and on art (see context_write). '
         'The append is read back before it counts as verified. If the context area does not answer, '
         'the append is kept as a pending write and is not saved yet (see context_start). Only .md files; paths that '
         'leave the context area are refused.',
@@ -484,9 +484,15 @@ Schreibauftrag _auftragAus(
       'root_file is only for a file directly in the context root; use new_file or another kind for a file in a folder.',
     );
   }
-  // Ein Journal wird nur angehängt. Die Bindung hängt am Pfad, nicht an der Art,
-  // die die KI nennt; `art: journal` außerhalb von journal/ ist ebenfalls abgewiesen.
-  if (!anhaengen && (istJournalPfad(pfad) || art == Art.journal)) {
+  // Die Bindung hängt am Pfad, nicht an der Art, die die KI nennt: Ein Journal
+  // wird nur angehängt, und `art: journal` gilt nur für eine Journaldatei. Sonst
+  // würde eine Planänderung als Journaleintrag auf Stufe alle nie gefragt.
+  if (art == Art.journal && !istJournalPfad(pfad)) {
+    throw KontextFehler(
+      "The kind 'journal' is only for a journal file (journal/YYYY-MM-DD.md or journal-*.md), not for '$pfad'; use another kind.",
+    );
+  }
+  if (!anhaengen && istJournalPfad(pfad)) {
     throw KontextFehler(
       "A journal is only appended, never replaced: use context_append for '$pfad'.",
     );
