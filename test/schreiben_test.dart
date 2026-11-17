@@ -180,6 +180,31 @@ void main() {
     });
 
     test(
+      'ein Journal wird auch bei anderer Groß- und Kleinschreibung nie ersetzt',
+      () async {
+        final p = await laufendesPlugin(stufe: 'alle');
+        // Auf macOS und Windows zeigen diese Pfade auf das Journal. Die Bindung
+        // hängt deshalb nicht an der Schreibweise, und jeder Pfad wird abgewiesen,
+        // bevor etwas geschrieben oder gefragt wird.
+        for (final pfadArg in [
+          'Journal/2026-11-17.md',
+          'JOURNAL/2026-11-17.md',
+          'Journal-2026-11-17.md',
+          'JOURNAL-2026-11-17.md',
+        ]) {
+          final ergebnis = await p.werkzeug(
+            'context_write',
+            schreiben(pfadArg: pfadArg, inhalt: 'neu\n', art: 'correction'),
+          );
+          expect(ergebnis['isError'], isTrue, reason: pfadArg);
+          expect(PluginProzess.text(ergebnis), contains('context_append'));
+          expect(File(datei(pfadArg)).existsSync(), isFalse, reason: pfadArg);
+        }
+        expect(p.app.freigaben, isEmpty);
+      },
+    );
+
+    test(
       'die Art root_file wird für eine Datei in einem Ordner abgewiesen',
       () async {
         final p = await laufendesPlugin(stufe: 'alle');

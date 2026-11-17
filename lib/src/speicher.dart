@@ -317,10 +317,15 @@ class LokalerSpeicher {
 /// Journal im Wurzelordner (`journal-*.md`, Coursepilot). Das Journal wird nur
 /// angehängt, unabhängig davon, welche Art die KI angibt. Der Pfad allein
 /// entscheidet, nicht die Art.
+///
+/// Der Vergleich ignoriert Groß- und Kleinschreibung: Auf macOS und Windows
+/// ist `Journal/x.md` dieselbe Datei wie `journal/x.md`, und die Sperre
+/// darf nicht über die Schreibweise umgangen werden.
 bool istJournalPfad(String relativ) {
   final teile = relativ
       .split('/')
       .where((t) => t.isNotEmpty && t != '.')
+      .map((t) => t.toLowerCase())
       .toList();
   if (teile.isEmpty) return false;
   if (teile.length > 1) return teile.first == 'journal';

@@ -21,6 +21,7 @@ Entscheidungen, Gewohnheiten, Fachbegriffe) in einem Kontextbereich außerhalb
 von Moodle. `context` stellt diesen Bereich der KI über vier Werkzeuge bereit:
 
 - `context_list` listet einen Ordner, `context_read` liest eine Datei mit ihrer Version.
+  Dateien über 100 Zeilen kommen zuerst als Inhaltsverzeichnis; ein Abschnitt wird über seine Überschrift gelesen.
 - `context_write` legt eine Markdown-Datei an oder ersetzt sie, `context_append` hängt Text an.
 
 Lesen und Schreiben bleiben im Kontextbereich. Jeder Schreibvorgang fragt die
@@ -55,6 +56,15 @@ Inhalt für einen lokalen Ordner, der Pfad muss absolut sein:
 Fehlt die Datei, ist der Ordner nicht da oder kann er nicht gelesen werden,
 meldet das Plugin den Grund; es arbeitet nie auf einer leeren Liste weiter.
 
+### Lange Dateien
+
+Eine Datei mit höchstens 100 Zeilen liest die KI ganz. Eine längere Datei liefert
+`context_read` als Inhaltsverzeichnis aus ihren Überschriften `##` und `###` mit
+Zeilenbereichen. Die KI fordert dann einen Abschnitt über seine Überschrift an oder
+die ganze Datei, wenn sie sie ausdrücklich braucht. Eine lange Datei ohne
+Überschriften liefert das Plugin nur mit einem Hinweis; die Datei bekommt dann
+Überschriften oder wird ganz gelesen.
+
 ### Schreiben und Freigaben
 
 Die KI schreibt nur `.md`-Dateien innerhalb des Kontextbereichs. Welche
@@ -76,6 +86,7 @@ Journaleinträge werden nur angehängt.
 - `bin/context.dart`: Start nach den Regeln von moocp (Port auf der
   Kommandozeile, Schlüssel aus `MOOCP_PLUGIN_SCHLUESSEL`, Ende mit der
   Standardeingabe).
+- `lib/src/inhaltsverzeichnis.dart`: Lesen von Dateien über 100 Zeilen: Inhaltsverzeichnis, Abschnitt über die Überschrift, ganze Datei nur auf Bitte.
 - `lib/src/speicher.dart`: Kontextbereich im lokalen Ordner. Lesen, Schreiben
   und Anhängen mit Prüfung des Stands und Rücklesen. Jeder Pfad wird gegen die
   Wurzel geprüft; Verknüpfungen werden aufgelöst.
@@ -98,7 +109,8 @@ auf und arbeiten in einem temporären Ordner. `test/harness.dart` stellt
 Aufruf eines Werkzeugs mit Token, und `app` (`FakeApp`): eine falsche Adresse
 der App, die Freigaben nach der Stufe der Lehrkraft beantwortet und jede
 Anfrage zählt. Die Tests für Lesen und Einstellungen stehen in
-`test/context_plugin_test.dart`, die für Schreiben in `test/schreiben_test.dart`.
+`test/context_plugin_test.dart`, die für lange Dateien in
+`test/inhaltsverzeichnis_test.dart`, die für Schreiben in `test/schreiben_test.dart`.
 
 ### Entwickeln
 

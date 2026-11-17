@@ -3,6 +3,7 @@ import 'package:mcp_dart/mcp_dart.dart';
 import 'app.dart';
 import 'art.dart';
 import 'fehler.dart';
+import 'inhaltsverzeichnis.dart';
 import 'speicher.dart';
 
 /// Die Werkzeuge des Plugins am MCP-Server. Jeder Aufruf öffnet den
@@ -50,14 +51,28 @@ void registriereWerkzeuge(
   server.registerTool(
     'context_read',
     description:
-        'Reads one text file of the teacher\'s context area and returns its content '
-        'and its version (a hash of the content). Paths are relative to the context '
-        'area; paths that leave it are refused.',
+        'Reads one text file of the teacher\'s context area and returns its version '
+        '(a hash of the whole file, needed for context_write) and its content. Files of '
+        '$grenzeZeilen lines or fewer come back whole. Longer files come back as a table '
+        'of contents of their ## and ### headings with line ranges. Then call again with '
+        '"abschnitt" set to one heading text to read that section, or with "ganz": true '
+        'to read the whole file. Paths are relative to the context area; paths that leave '
+        'it are refused.',
     inputSchema: JsonSchema.object(
       properties: {
         'pfad': JsonSchema.string(
           description:
               'File relative to the context area, for example "index.md".',
+        ),
+        'abschnitt': JsonSchema.string(
+          description:
+              'Heading text of one section to read, as listed in the table of contents, '
+              'for example "Woche 2". Not together with ganz.',
+        ),
+        'ganz': JsonSchema.boolean(
+          description:
+              'true returns the whole file, also when it is longer than $grenzeZeilen lines. '
+              'Not together with abschnitt.',
         ),
       },
       required: ['pfad'],
@@ -71,12 +86,11 @@ void registriereWerkzeuge(
     callback: (args, extra) async {
       return _ausfuehren(() async {
         final pfad = _text(args, 'pfad');
+        final abschnitt = _optionalerText(args, 'abschnitt');
+        final ganz = _optionalerBool(args, 'ganz') ?? false;
         final speicher = await oeffnen();
         final gelesen = await speicher.lese(pfad);
-        return 'path: $pfad\n'
-            'version: ${gelesen.version}\n'
-            '\n'
-            '${gelesen.text}';
+        return leseAusschnitt(pfad, gelesen, abschnitt: abschnitt, ganz: ganz);
       });
     },
   );
@@ -277,6 +291,14 @@ String? _optionalerText(Map<String, dynamic> args, String name) {
   if (wert == null) return null;
   if (wert is! String)
     throw KontextFehler("The argument '$name' must be text.");
+  return wert;
+}
+
+bool? _optionalerBool(Map<String, dynamic> args, String name) {
+  final wert = args[name];
+  if (wert == null) return null;
+  if (wert is! bool)
+    throw KontextFehler("The argument '$name' must be true or false.");
   return wert;
 }
 
