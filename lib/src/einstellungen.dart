@@ -48,6 +48,22 @@ class Einstellungen {
 
   /// Das Konto im Schlüsselbund: der Benutzer an der Adresse.
   String get konto => '$benutzer@$adresse';
+
+  /// Der Inhalt der Einstellungsdatei. Das Passwort steht nie darin (A6).
+  Map<String, Object?> alsJson() => switch (art) {
+    'webdav' => {'art': art, 'adresse': adresse.toString(), 'benutzer': benutzer},
+    _ => {'art': art, 'pfad': pfad},
+  };
+}
+
+/// Schreibt die Einstellungsdatei (E8). Der Inhalt geht zuerst in eine Datei
+/// daneben und wird dann umbenannt: Bricht das Schreiben ab, bleibt die alte
+/// Datei, wie sie war, und es liegt kein halber Inhalt im Datenordner.
+Future<void> schreibeEinstellungen(File datei, Einstellungen einstellungen) async {
+  await datei.parent.create(recursive: true);
+  final tmp = File('${datei.path}.tmp');
+  await tmp.writeAsString(jsonEncode(einstellungen.alsJson()), flush: true);
+  await tmp.rename(datei.path);
 }
 
 /// Der Ort der Einstellungsdatei im Datenordner des Plugins (außerhalb des

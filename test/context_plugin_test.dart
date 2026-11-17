@@ -77,7 +77,7 @@ void _tests(Ortsart art) {
     });
 
     test(
-      'meldet sich als „context“ und bietet die sieben Werkzeuge an',
+      'meldet sich als „context“ und bietet die acht Werkzeuge an',
       () async {
         final p = await laufendesPlugin();
         final liste = await p.anfragen('tools/list', {});
@@ -91,6 +91,7 @@ void _tests(Ortsart art) {
           'context_link',
           'context_archive',
           'context_start',
+          'context_settings',
         });
         for (final w in werkzeuge) {
           expect(w['name'], startsWith('context_'));

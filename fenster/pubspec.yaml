@@ -1,0 +1,31 @@
+# Das Einstellungsfenster des Plugins „context“ (E8): ein eigenes Flutter-Programm,
+# das `bauen.sh` in den Plugin-Ordner legt. Es benutzt die Logik des Plugins
+# (Einrichtung, Schlüsselbund) über den Pfad `..`. Nur Pakete mit freizügiger
+# Lizenz (BSD, MIT, Apache 2.0), wie im Plugin.
+name: kontext_einstellungen
+description: Einstellungsfenster des Plugins context für moocp.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.2
+  flutter: ">=3.50.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  contextmanager:
+    path: ..
+  file_selector: ^1.0.3
+  window_manager: ^0.7.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # Dieselben Regeln wie in moocp (analysis_options.yaml).
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

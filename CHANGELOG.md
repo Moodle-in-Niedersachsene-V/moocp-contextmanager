@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Neu: Ein Einstellungsfenster richtet den Kontextbereich ein: Ordner auf dem Rechner oder WebDAV-Server mit Adresse, Benutzer und verdecktem Passwort. „Verbindung prüfen“ zeigt, ob der Ort antwortet, oder nennt die Ursache; „Speichern“ trägt das Passwort in den Schlüsselbund des Systems ein.
+- Neu: Das Einstellungsfenster öffnet sich beim ersten Start ohne Einstellungen und, einmal je Ausfall, wenn der Kontextbereich nicht antwortet. Die KI kann es mit `context_settings` öffnen; sie sieht und setzt dabei keine Werte.
 - Neu: Der Kontextbereich kann auf einem WebDAV-Server liegen. Adresse und Benutzer stehen in den Einstellungen, das Passwort im Schlüsselbund des Systems. Antwortet der Server nicht, gilt dasselbe wie bei einem fehlenden Ordner: Der Schreibvorgang wartet im Ausstand.
 - Geändert: Der Ausstand ist nur für die Benutzerin lesbar. Eine Wiederholung schreibt einen Vorgang nur an den Ort, an dem er entstand; für einen anderen Ort meldet sie ihn und lässt ihn stehen.
 - Neu: Die KI kann Markdown-Dateien im Kontextbereich anlegen, ersetzen (`context_write`) und Text anhängen (`context_append`). Jede Änderung fragt die Lehrkraft in moocp je nach Freigabestufe; eine Datei, die sich seit dem Lesen geändert hat, wird nicht überschrieben, und ein Journal wird nur angehängt.

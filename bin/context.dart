@@ -11,6 +11,7 @@
 import 'dart:io';
 
 import 'package:contextmanager/src/einstellungen.dart';
+import 'package:contextmanager/src/einstellungsfenster.dart';
 import 'package:contextmanager/src/server.dart';
 
 const schluesselVariable = 'MOOCP_PLUGIN_SCHLUESSEL';
@@ -28,12 +29,19 @@ Future<void> main(List<String> argumente) async {
     _wert(argumente, '--einstellungen') ?? standardEinstellungenPfad(),
   );
 
+  final fenster = Einstellungsfenster(
+    programm: _wert(argumente, '--fenster') ?? standardFensterProgramm(),
+    einstellungen: einstellungen,
+  );
   final server = kontextServer(
     port: port,
     schluessel: schluessel,
     einstellungen: einstellungen,
+    fenster: fenster,
   );
   await server.start();
+  // Gibt es noch keine Einstellungen, öffnet die Lehrkraft das Fenster gleich (E8).
+  if (!await einstellungen.exists()) await fenster.beiAusfall();
 
   // Zum Entwickeln von Hand: die Standardeingabe gehört nicht moocp.
   if (argumente.contains('--entwicklung')) return;

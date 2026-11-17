@@ -108,6 +108,12 @@ class PluginProzess {
   /// Anfragen, die beim falschen App-Server ankamen (sollen in den Tests leer bleiben).
   List<String> get appAnfragen => app.anfragen;
 
+  /// Die Aufrufe des Einstellungsfensters (je Zeile ein Aufruf mit Argumenten).
+  List<String> get fensterAufrufe {
+    final datei = File(p.join(ordner.path, 'fenster-aufrufe.txt'));
+    return datei.existsSync() ? datei.readAsLinesSync() : <String>[];
+  }
+
   String? _sitzung;
   int _nummer = 0;
 
@@ -124,6 +130,7 @@ class PluginProzess {
     String? schluessel = testSchluessel,
     bool mitPort = true,
     bool mitEntwicklung = false,
+    String? fenster,
   }) async {
     final port = await _freierPort();
     final app = FakeApp();
@@ -211,11 +218,22 @@ class PluginProzess {
       await einstellungen.writeAsString(inhalt);
     }
 
+    // Das Einstellungsfenster ist im Test ein Skript, das nur aufzeichnet, was
+    // es bekommt (Pfad der Einstellungen). So öffnet kein Test ein echtes Fenster.
+    final aufrufe = File(p.join(ordner.path, 'fenster-aufrufe.txt'));
+    final fensterSkript = File(p.join(ordner.path, 'fenster-skript'));
+    await fensterSkript.writeAsString(
+      '#!/bin/sh\necho "\$@" >> ${aufrufe.path}\n',
+    );
+    Process.runSync('chmod', ['755', fensterSkript.path]);
+
     final args = [
       'bin/context.dart',
       if (mitPort) ...['--port', '$port'],
       '--einstellungen',
       einstellungen.path,
+      '--fenster',
+      fenster ?? fensterSkript.path,
       if (mitEntwicklung) '--entwicklung',
     ];
     final prozess = await Process.start(

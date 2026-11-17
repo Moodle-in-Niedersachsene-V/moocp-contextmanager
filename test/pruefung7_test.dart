@@ -31,6 +31,10 @@ class _GesperrterSchluesselbund implements Schluesselbund {
   @override
   Future<String> geheimnis(String konto) async =>
       throw const KontextFehler('The keyring is locked.');
+
+  @override
+  Future<void> speichere(String konto, String geheimnis) async =>
+      throw const KontextFehler('The keyring is locked.');
 }
 
 void main() {

@@ -99,6 +99,43 @@ void main() {
     );
   });
 
+  test('speichern: das Passwort geht über die Standardeingabe, nie in die Kommandozeile', () async {
+    final argumente = p.join(ordner.path, 'argumente');
+    final eingabe = p.join(ordner.path, 'eingabe');
+    final datei = File(p.join(ordner.path, 'werkzeug'));
+    await datei.writeAsString(
+      '#!/bin/sh\n'
+      'printf "%s\\n" "\$@" > "$argumente"\n'
+      'cat > "$eingabe"\n'
+      'exit 0\n',
+    );
+    Process.runSync('chmod', ['755', datei.path]);
+
+    await SystemSchluesselbund(werkzeug: datei.path)
+        .speichere('nutzer@adresse', testPasswort);
+
+    expect(File(eingabe).readAsStringSync(), testPasswort);
+    final zeilen = File(argumente).readAsLinesSync();
+    expect(zeilen, containsAll(['moocp-contextmanager', 'nutzer@adresse']));
+    expect(zeilen.join(' '), isNot(contains(testPasswort)));
+  });
+
+  test('speichern: scheitert das Werkzeug, ist das ein Fehler mit Grund ohne Passwort', () async {
+    final werkzeug = await ersatz(ausgabe: '', exitCode: 1);
+
+    await expectLater(
+      SystemSchluesselbund(werkzeug: werkzeug)
+          .speichere('nutzer@adresse', testPasswort),
+      throwsA(
+        isA<KontextFehler>().having(
+          (f) => f.meldung,
+          'meldung',
+          allOf(contains('could not be stored'), isNot(contains(testPasswort))),
+        ),
+      ),
+    );
+  });
+
   test('ein leerer Eintrag zählt als fehlend', () async {
     final werkzeug = await ersatz(ausgabe: '', exitCode: 0);
 

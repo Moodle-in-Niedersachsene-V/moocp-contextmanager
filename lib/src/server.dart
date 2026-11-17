@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 import 'app.dart';
 import 'ausstand.dart';
+import 'einstellungsfenster.dart';
 import 'ort.dart';
 import 'schluessel.dart';
 import 'schluesselbund.dart';
@@ -18,17 +19,26 @@ StreamableMcpServer kontextServer({
   required String schluessel,
   required File einstellungen,
   Schluesselbund? schluesselbund,
+  Einstellungsfenster? fenster,
 }) {
   // Der Ausstand liegt neben der Einstellungsdatei, im Datenordner des Plugins.
   final ausstand = Ausstand(
     Directory(p.join(einstellungen.parent.path, 'ausstand')),
   );
+  final einstellungsfenster =
+      fenster ??
+      Einstellungsfenster(
+        programm: standardFensterProgramm(),
+        einstellungen: einstellungen,
+      );
   final zugang = Ortszugang(
     einstellungen: einstellungen,
     schluesselbund: schluesselbund ?? SystemSchluesselbund(),
+    fenster: einstellungsfenster,
   );
   return StreamableMcpServer(
-    serverFactory: (_) => _mcpServer(zugang, schluessel, ausstand),
+    serverFactory: (_) =>
+        _mcpServer(zugang, schluessel, ausstand, einstellungsfenster),
     host: '127.0.0.1',
     port: port,
     path: '/mcp',
@@ -41,7 +51,12 @@ StreamableMcpServer kontextServer({
   );
 }
 
-McpServer _mcpServer(Ortszugang zugang, String schluessel, Ausstand ausstand) {
+McpServer _mcpServer(
+  Ortszugang zugang,
+  String schluessel,
+  Ausstand ausstand,
+  Einstellungsfenster fenster,
+) {
   final server = McpServer(
     const Implementation(name: 'context', version: '0.1.0'),
   );
@@ -49,7 +64,7 @@ McpServer _mcpServer(Ortszugang zugang, String schluessel, Ausstand ausstand) {
     adresse: () => _adresseDerApp(server),
     schluessel: schluessel,
   );
-  registriereWerkzeuge(server, zugang, app, ausstand);
+  registriereWerkzeuge(server, zugang, app, ausstand, fenster);
   return server;
 }
 

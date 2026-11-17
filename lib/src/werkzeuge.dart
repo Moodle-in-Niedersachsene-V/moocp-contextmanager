@@ -4,6 +4,7 @@ import 'app.dart';
 import 'archiv.dart';
 import 'art.dart';
 import 'ausstand.dart';
+import 'einstellungsfenster.dart';
 import 'fehler.dart';
 import 'inhaltsverzeichnis.dart';
 import 'konflikt.dart';
@@ -23,6 +24,7 @@ void registriereWerkzeuge(
   Ortszugang zugang,
   AppAnschluss app,
   Ausstand ausstand,
+  Einstellungsfenster fenster,
 ) {
   server.registerTool(
     'context_list',
@@ -268,6 +270,31 @@ void registriereWerkzeuge(
           zusammenfassung: _text(args, 'zusammenfassung'),
         );
       });
+    },
+  );
+
+  server.registerTool(
+    'context_settings',
+    description:
+        'Opens the settings window of the context plugin, where the teacher enters the '
+        'location (a local folder or a WebDAV server) and its password. Use it when the '
+        'context area does not answer or when the teacher asks for the settings. The window '
+        'also opens by itself on the first start and when the location does not answer. '
+        'This tool only opens the window and returns no values: the assistant never sees, '
+        'sets or repeats the location or the password.',
+    inputSchema: JsonSchema.object(properties: {}),
+    annotations: const ToolAnnotations(
+      title: 'Open settings window',
+      readOnlyHint: false,
+      destructiveHint: false,
+      openWorldHint: false,
+    ),
+    callback: (args, extra) async {
+      final ergebnis = await fenster.oeffnen();
+      return CallToolResult(
+        content: [TextContent(text: ergebnis.meldung)],
+        isError: ergebnis.stand == FensterStand.nichtGestartet,
+      );
     },
   );
 

@@ -3,22 +3,23 @@
 Das Plugin `context` für moocp gibt der KI den Kontextbereich der Lehrkraft:
 einen Ordner mit Konventionen, Stand und Fachsprache, der Kurse und Schuljahre
 überdauert. Der Kontextbereich liegt in einem lokalen Ordner oder auf einem
-WebDAV-Server (WebDAV folgt).
+WebDAV-Server.
 
 ## Quickstart
 
 ```
-bash bauen.sh                       # baut das Plugin nach build/context
+bash bauen.sh                       # baut das Plugin nach build/context (braucht dart und flutter)
 bash entwickeln.sh /pfad/zu/moocp   # startet es zum Entwickeln an moocp
 ```
 
-Danach einen Kontextbereich in `einstellungen.json` eintragen (siehe Benutzerhandbuch).
+Beim ersten Start öffnet sich das Einstellungsfenster. Dort richtet die
+Lehrkraft den Kontextbereich ein (siehe Benutzerhandbuch).
 
 ## Vorstellung
 
 Eine Lehrkraft plant Kurse mit der KI und hält das Wissen dahinter (Pläne,
 Entscheidungen, Gewohnheiten, Fachbegriffe) in einem Kontextbereich außerhalb
-von Moodle. `context` stellt diesen Bereich der KI über sieben Werkzeuge bereit:
+von Moodle. `context` stellt diesen Bereich der KI über acht Werkzeuge bereit:
 
 - `context_list` listet einen Ordner, `context_read` liest eine Datei mit ihrer Version.
   Konfliktkopien von Sync-Clients meldet `context_list` unter der Liste, mit beiden Dateinamen.
@@ -26,6 +27,7 @@ von Moodle. `context` stellt diesen Bereich der KI über sieben Werkzeuge bereit
 - `context_write` legt eine Markdown-Datei an oder ersetzt sie, `context_append` hängt Text an.
 - `context_archive` verschiebt Dateien eines Ordners nach `archive/` in diesem Ordner. Es wird nichts gelöscht und nichts überschrieben.
 - `context_link` schreibt den Wegweiser `CONTEXT-LINK.md` in einen Materialordner, den die Lehrkraft wählt.
+- `context_settings` öffnet das Einstellungsfenster, in dem die Lehrkraft Ort und Passwort einträgt. Die Antwort nennt keinen Wert.
 - `context_start` beginnt die Sitzung: Lage des Kontextbereichs, offene Vorgänge, Konfliktkopien im ganzen Kontextbereich, `index.md` (bei altem Layout `CONTEXT.md`) und `habits.md` der Wurzel. Mit `wiederholen: true` werden die offenen Vorgänge nachgetragen.
 
 Lesen und Schreiben bleiben im Kontextbereich. Jeder Schreibvorgang fragt die
@@ -45,36 +47,54 @@ bleibt ein Schreibvorgang mit seinem Inhalt erhalten und wird später nachgetrag
 
 Das fertige Plugin ist der Ordner aus `bauen.sh`. Er gehört in den
 Einstellungsordner von moocp unter `plugins/context`. moocp vorher beenden:
-Beim nächsten Start fragt moocp nach der Zustimmung zu dieser Version. Die
-Einrichtung über ein Einstellungsfenster folgt; bis dahin ist die
-Einstellungsdatei von Hand anzulegen.
+Beim nächsten Start fragt moocp nach der Zustimmung zu dieser Version. Der
+Ordner enthält das Einstellungsfenster in `einstellungsfenster/`; das Plugin
+startet es von dort.
 
 ### Einstellungen
 
-Die Datei `einstellungen.json` liegt im Datenordner des Plugins:
+Die Einrichtung geschieht im Einstellungsfenster. Es öffnet sich von selbst beim
+ersten Start ohne Einstellungen und, wenn der Kontextbereich nicht antwortet.
+Die KI kann es mit `context_settings` öffnen; sie sieht und setzt dabei keine
+Werte.
+
+Im Fenster wählt die Lehrkraft:
+
+- **Ordner auf diesem Rechner**: den Ordner über den Dateidialog, „Ordner wählen“.
+- **WebDAV-Server**: Adresse, Benutzer und Passwort. Das Passwort wird verdeckt
+  eingetragen. Die Adresse beginnt mit `https://` (`http://` nur für 127.0.0.1 oder
+  localhost) und enthält keine Zugangsdaten.
+
+„Verbindung prüfen“ öffnet den Kontextbereich und listet seinen Ordner, ohne
+etwas zu schreiben. Die Antwort sagt, ob es geklappt hat, oder nennt die Ursache.
+„Speichern“ trägt das Passwort in den Schlüsselbund des Systems ein und schreibt
+danach die Einstellungen. Ist der Schlüsselbund nicht erreichbar, bleibt die
+bisherige Einstellung unverändert. Ein leeres Passwortfeld lässt das bisherige
+Passwort stehen.
+
+Die Einstellungen liegen im Datenordner des Plugins, in der Datei
+`einstellungen.json`:
 
 - Linux: `~/.config/moocp-contextmanager/einstellungen.json`
 - Mac: `~/Library/Application Support/moocp-contextmanager/einstellungen.json`
 
-Inhalt für einen lokalen Ordner, der Pfad muss absolut sein:
+Für einen lokalen Ordner steht darin der absolute Pfad:
 
 ```json
 { "art": "lokal", "pfad": "/home/name/Kontext" }
 ```
 
-Liegt der Kontextbereich auf einem WebDAV-Server, nennt die Datei Adresse und
-Benutzer. Die Adresse beginnt mit `https://` (`http://` nur für 127.0.0.1 oder
-localhost) und enthält keine Zugangsdaten:
+Für einen WebDAV-Server stehen Adresse und Benutzer darin, nie das Passwort:
 
 ```json
 { "art": "webdav", "adresse": "https://cloud.example.org/remote.php/dav/files/name/Kontext/", "benutzer": "name" }
 ```
 
-Das Passwort gehört nicht in diese Datei. Es liegt im Schlüsselbund des Systems
-unter dem Dienst `moocp-contextmanager` und dem Konto `Benutzer@Adresse`.
-Unter Linux braucht das Plugin dafür `secret-tool` (Paket `libsecret-tools`),
-auf dem Mac `security`. Fehlt das Werkzeug oder der Eintrag, meldet das Plugin
-das; es sucht das Passwort nie in einer Datei.
+Das Passwort liegt im Schlüsselbund des Systems unter dem Dienst
+`moocp-contextmanager` und dem Konto `Benutzer@Adresse`. Unter Linux braucht das
+Plugin dafür `secret-tool` (Paket `libsecret-tools`), auf dem Mac `security`.
+Fehlt das Werkzeug oder der Eintrag, meldet das Plugin das; es sucht das Passwort
+nie in einer Datei.
 
 Fehlt die Datei, ist der Ordner nicht da oder kann er nicht gelesen werden,
 meldet das Plugin den Grund; es arbeitet nie auf einer leeren Liste weiter.
@@ -167,6 +187,8 @@ Zeitablauf nach 20 Sekunden oder ein Serverfehler. Ein falsches Passwort oder ei
 falsche Adresse ist eine Ursache, die die Antwort nennt. Ein Schreibvorgang kommt
 dafür nicht in den Ausstand; er wird erst nach der Korrektur der Einstellungen neu gestellt.
 `context_start` nennt die Ursache, und die KI arbeitet nicht auf einer Kopie weiter.
+Bei einem solchen Ausfall öffnet sich das Einstellungsfenster einmal, damit die
+Lehrkraft die Einstellungen gleich korrigieren kann.
 
 Ein Schreibvorgang, der an diesem Zustand scheitert, bleibt im Datenordner des
 Plugins erhalten (Ordner `ausstand/` neben der Einstellungsdatei) und wird nicht
@@ -212,6 +234,9 @@ den Vorgang nicht an den neuen Ort, sondern meldet ihn und lässt ihn stehen.
 - `lib/src/einstellungen.dart`: Einstellungsdatei für beide Orte und Prüfung der Adresse.
 - `lib/src/werkzeuge.dart`: die MCP-Werkzeuge.
 - `lib/src/server.dart`: MCP-Server auf `127.0.0.1` mit Schlüsselprüfung.
+- `lib/src/einrichtung.dart`: die Einrichtung aus dem Fenster: Eingabe prüfen, Verbindung prüfen, speichern (Schlüsselbund vor Datei) und die deutschen Meldungen (E8).
+- `lib/src/einstellungsfenster.dart`: Start des Fensters: beim ersten Start ohne Einstellungen, einmal je Ausfall, auf Wunsch der KI (`context_settings`) (E8).
+- `fenster/`: das Einstellungsfenster als eigenes Flutter-Programm (Material 3, moocps Grundfarbe, `window_manager`). Es benutzt das Plugin über den Pfad `..`; `bauen.sh` legt es als `einstellungsfenster/` in den Plugin-Ordner.
 - `plugin.json`: Beschreibungsdatei für moocp.
 
 ### Tests
@@ -240,7 +265,14 @@ die für den Start in `test/start_test.dart`, für das alte Layout in
 `test/altes_layout_test.dart`, für Konfliktkopien in `test/konfliktkopien_test.dart`,
 für das Archivieren in `test/archiv_test.dart`, für den Ausstand in
 `test/ausstand_test.dart`, für den Wegweiser in `test/wegweiser_test.dart` und die
-Prüfungen aus dem Review von #7 in `test/pruefung7_test.dart`. Ein Ausfall des Ortes simulieren die Tests, indem sie
+Prüfungen aus dem Review von #7 in `test/pruefung7_test.dart`. Die Einrichtung
+(Schreiben der Datei, Prüfung der Eingabe, Verbindung, Speichern und die
+deutschen Meldungen) steht in `test/einrichtung_test.dart`, der Schlüsselbund
+zum Schreiben in `test/schluesselbund_test.dart`, das Starten des Fensters in
+`test/einstellungsfenster_test.dart` und am MCP-Seam in
+`test/einstellungsfenster_mcp_test.dart`. Das Fenster selbst prüft
+`fenster/test/einstellungs_seite_test.dart` mit `flutter test` im Ordner
+`fenster/`; dort ersetzen Fakes die Logik des Plugins. Ein Ausfall des Ortes simulieren die Tests, indem sie
 den Wurzelordner entfernen, am WebDAV-Ort stoppen sie den Server (`ausfallen`).
 Tests, die nur am lokalen Ordner Sinn haben (Verknüpfungen), sind dort übersprungen.
 
@@ -249,3 +281,5 @@ Tests, die nur am lokalen Ordner Sinn haben (Verknüpfungen), sind dort überspr
 `entwickeln.sh <moocp>` erzeugt einen Schlüssel, startet das Plugin auf dem
 Port `entwicklungsPort` aus `plugin.json` mit `--entwicklung` und startet moocp
 mit `--plugin-entwicklung`. Das Plugin läuft dann, bis der Entwickler es beendet.
+Das Einstellungsfenster öffnet es aus `build/context/einstellungsfenster`, wenn
+`bauen.sh` das schon getan hat.

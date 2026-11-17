@@ -28,12 +28,16 @@ MOOCP_PLUGIN_SCHLUESSEL="$(head -c 32 /dev/urandom | base64 | tr -d '\n=' | tr '
 export MOOCP_PLUGIN_SCHLUESSEL
 
 cd "$ORDNER"
+# Ist das Einstellungsfenster gebaut (bauen.sh), öffnet das Plugin es von dort.
+FENSTER="$ORDNER/build/context/einstellungsfenster/kontext_einstellungen"
+FENSTER_ARG=()
+if [[ -x "$FENSTER" ]]; then FENSTER_ARG=(--fenster "$FENSTER"); fi
 PLUGIN=""
 trap '[[ -n "$PLUGIN" ]] && kill "$PLUGIN" 2>/dev/null; exit 130' INT TERM
 trap '[[ -n "$PLUGIN" ]] && kill "$PLUGIN" 2>/dev/null || true' EXIT
 MOOCP_GESTARTET=""
 while true; do
-  dart run bin/context.dart --port "$PORT" --entwicklung &
+  dart run bin/context.dart --port "$PORT" --entwicklung "${FENSTER_ARG[@]}" &
   PLUGIN=$!
   if [[ -z "$MOOCP_GESTARTET" ]]; then
     echo "Das Plugin läuft auf 127.0.0.1:$PORT. moocp startet und fragt, ob es das Plugin anhängen soll."
