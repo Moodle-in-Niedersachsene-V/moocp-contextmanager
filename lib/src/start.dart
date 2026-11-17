@@ -123,13 +123,16 @@ Future<List<String>> _konfliktZeilen(Kontextspeicher? speicher) async {
     if (suche.begrenzt) {
       zeilen.add(
         '- not fully checked: the check stopped at $konfliktHoechstOrdner folders or depth '
-        '$konfliktHoechstTiefe; deeper folders were not checked.',
+        '$konfliktHoechstTiefe (${suche.geprueft} folders checked); '
+        'the remaining folders were not checked.',
       );
     }
     if (suche.zeitlimitErreicht) {
       zeilen.add(
         '- not fully checked: the check stopped after '
-        '${konfliktZeitlimit.inSeconds} seconds; the remaining folders were not checked.',
+        '${konfliktZeitlimit.inSeconds} seconds (the context area answers slowly; '
+        '${suche.geprueft} folders checked, at least ${suche.ungeprueft} more waiting); '
+        'the remaining folders were not checked.',
       );
     }
     return zeilen;

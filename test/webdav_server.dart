@@ -17,7 +17,22 @@ class WebDavTestServer {
     required this.ordner,
     required this.benutzer,
     required this.passwort,
+    this.sendetEtag = true,
   });
+
+  /// Ob der Server ETags sendet. Falsch: er verhält sich wie ein Server, der
+  /// keine kennt (etwa hinter einem Proxy, der sie entfernt): kein `getetag` in
+  /// PROPFIND, kein `ETag` in Antworten, und `If-Match` / `If-None-Match` werden
+  /// ignoriert, das Schreiben ist dann nie bedingt.
+  final bool sendetEtag;
+
+  /// Läuft in einem PUT, nachdem der Körper empfangen ist und bevor der Server
+  /// den Stand der Datei ansieht. Ein Test ändert hier die Datei und stellt so
+  /// das Fenster zwischen Prüfung und Schreiben nach.
+  void Function(String relativ)? vorSchreiben;
+
+  /// Alle Anfragen als „METHODE /pfad“ mit den Bedingungsköpfen, die ankamen.
+  final List<String> protokoll = [];
 
   /// Der Ordner auf der Platte, den der Server bedient.
   final Directory ordner;
@@ -78,6 +93,11 @@ class WebDavTestServer {
           );
         return;
       }
+      protokoll.add(
+        '${anfrage.method} ${anfrage.uri.path}'
+        '${anfrage.headers.value(HttpHeaders.ifMatchHeader) == null ? '' : ' If-Match'}'
+        '${anfrage.headers.value(HttpHeaders.ifNoneMatchHeader) == null ? '' : ' If-None-Match'}',
+      );
       final teile = anfrage.uri.pathSegments;
       if (teile.isEmpty || '/${teile.first}' != webdavPfad) {
         antwort.statusCode = HttpStatus.notFound;
@@ -157,7 +177,9 @@ class WebDavTestServer {
         '$webdavPfad/${teile.map(Uri.encodeComponent).join('/')}${ordner && teile.isNotEmpty ? '/' : ''}';
     final eigenschaften = ordner
         ? '<d:resourcetype><d:collection/></d:resourcetype>'
-        : '<d:resourcetype/><d:getetag>"${await _etag(pfad)}"</d:getetag>';
+        : sendetEtag
+        ? '<d:resourcetype/><d:getetag>"${await _etag(pfad)}"</d:getetag>'
+        : '<d:resourcetype/>';
     return '<d:response><d:href>$href</d:href><d:propstat><d:prop>$eigenschaften'
         '</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>';
   }
@@ -178,10 +200,11 @@ class WebDavTestServer {
       return;
     }
     final bytes = await File(ziel).readAsBytes();
-    antwort
-      ..statusCode = HttpStatus.ok
-      ..headers.set(HttpHeaders.etagHeader, '"${_hash(bytes)}"')
-      ..add(bytes);
+    antwort.statusCode = HttpStatus.ok;
+    if (sendetEtag) {
+      antwort.headers.set(HttpHeaders.etagHeader, '"${_hash(bytes)}"');
+    }
+    antwort.add(bytes);
   }
 
   Future<void> _schreibe(HttpRequest anfrage, String ziel) async {
@@ -190,6 +213,7 @@ class WebDavTestServer {
       <int>[],
       (alt, teil) => alt..addAll(teil),
     );
+    vorSchreiben?.call(p.relative(ziel, from: ordner.path));
     final vorhanden = await FileSystemEntity.type(ziel);
     if (vorhanden == FileSystemEntityType.directory) {
       antwort.statusCode = HttpStatus.conflict;
@@ -199,8 +223,12 @@ class WebDavTestServer {
       antwort.statusCode = HttpStatus.conflict;
       return;
     }
-    final ifNoneMatch = anfrage.headers.value(HttpHeaders.ifNoneMatchHeader);
-    final ifMatch = anfrage.headers.value(HttpHeaders.ifMatchHeader);
+    final ifNoneMatch = sendetEtag
+        ? anfrage.headers.value(HttpHeaders.ifNoneMatchHeader)
+        : null;
+    final ifMatch = sendetEtag
+        ? anfrage.headers.value(HttpHeaders.ifMatchHeader)
+        : null;
     final existiert = vorhanden == FileSystemEntityType.file;
     if (ifNoneMatch == '*' && existiert) {
       antwort.statusCode = HttpStatus.preconditionFailed;
@@ -216,9 +244,10 @@ class WebDavTestServer {
       }
     }
     await File(ziel).writeAsBytes(bytes, flush: true);
-    antwort
-      ..statusCode = existiert ? HttpStatus.noContent : HttpStatus.created
-      ..headers.set(HttpHeaders.etagHeader, '"${_hash(bytes)}"');
+    antwort.statusCode = existiert ? HttpStatus.noContent : HttpStatus.created;
+    if (sendetEtag) {
+      antwort.headers.set(HttpHeaders.etagHeader, '"${_hash(bytes)}"');
+    }
   }
 
   Future<void> _mkcol(HttpRequest anfrage, String ziel) async {
@@ -246,7 +275,9 @@ class WebDavTestServer {
       return;
     }
     // Wie ein Server: If-Match verlangt den Stand der Quelle, sonst 412.
-    final ifMatch = anfrage.headers.value(HttpHeaders.ifMatchHeader);
+    final ifMatch = sendetEtag
+        ? anfrage.headers.value(HttpHeaders.ifMatchHeader)
+        : null;
     if (ifMatch != null &&
         ifMatch != '"${_hash(await File(ziel).readAsBytes())}"') {
       antwort.statusCode = HttpStatus.preconditionFailed;

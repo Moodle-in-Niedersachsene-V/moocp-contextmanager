@@ -34,13 +34,48 @@ class Inhalt {
   final String version;
 }
 
+/// Wer die Bedingung „die Datei hat noch den gelesenen Stand“ beim Schreiben
+/// durchgesetzt hat (A3, ADR 0009). Das Plugin behauptet nie mehr, als geschah.
+enum Bedingung {
+  /// Der lokale Ordner: Das Plugin prüft unmittelbar vor dem Schreiben (E1).
+  lokal,
+
+  /// Der Server hat die Bedingung geprüft (`If-Match`, `If-None-Match`, E3).
+  vomServer,
+
+  /// Der Server sendet kein starkes ETag. Das Plugin hat den Stand selbst
+  /// unmittelbar vor dem Schreiben verglichen; dazwischen ist ein Wettlauf möglich.
+  nurVomPlugin,
+}
+
+/// Der Hinweis in der Antwort, wenn der Server die Bedingung nicht erzwungen hat.
+const hinweisNichtErzwungen =
+    'check: not enforced by the server. It sends no ETag, so the plugin compared '
+    'the version itself just before writing. A change made by someone else in that '
+    'short window would have been overwritten unnoticed; the read-back only shows '
+    'that the written bytes are there.';
+
+/// Das Präfix einer Version, die aus der Prüfsumme der Bytes entstand, weil der
+/// Server kein starkes ETag sendet (ADR 0009). Sie unterscheidet diese Version
+/// von einem ETag und von der Prüfsumme des lokalen Ortes.
+const inhaltsVersionPraefix = 'sha256:';
+
 /// Das Ergebnis eines Schreibvorgangs. [verifiziert] ist das Urteil des
 /// Plugins: Der Inhalt, den es zurückgelesen hat, ist der geschriebene.
 class Geschrieben {
-  const Geschrieben(this.version, {required this.verifiziert});
+  const Geschrieben(
+    this.version, {
+    required this.verifiziert,
+    this.bedingung = Bedingung.lokal,
+  });
 
   final String version;
   final bool verifiziert;
+  final Bedingung bedingung;
+
+  /// Die Zeile für die Antwort, wenn der Server nichts erzwungen hat; sonst null.
+  String? get hinweis =>
+      bedingung == Bedingung.nurVomPlugin ? hinweisNichtErzwungen : null;
 }
 
 /// Der Kontextbereich an einem Ort, unabhängig davon, wo er liegt (E3). Die
@@ -60,8 +95,9 @@ abstract class Kontextspeicher {
   /// Legt die Bytes an oder ersetzt sie. [erwartet] ist die Version, die die KI
   /// gelesen hat; null heißt: die Datei soll neu entstehen. Die Bedingung gilt
   /// an jedem Ort: Ist der Stand nicht mehr der erwartete, wirft es
-  /// [KontextKonflikt] und schreibt nichts. Ohne Rücklesen.
-  Future<void> ablegen(
+  /// [KontextKonflikt] und schreibt nichts. Ohne Rücklesen. Das Ergebnis sagt,
+  /// wer die Bedingung durchgesetzt hat.
+  Future<Bedingung> ablegen(
     String relativ,
     List<int> bytes, {
     required String? erwartet,
@@ -70,8 +106,9 @@ abstract class Kontextspeicher {
   /// Verschiebt eine Datei innerhalb der Wurzel, nur wenn ihr Stand noch [erwartet]
   /// ist. Ein vorhandenes Ziel wird nie ersetzt: Dann wirft es [KontextKonflikt]
   /// und lässt beide Namen, wie sie waren. Die Prüfung am Ort geschieht im selben
-  /// Schritt wie das Verschieben, nicht davor (siehe ADR 0006).
-  Future<void> verschiebeDatei(
+  /// Schritt wie das Verschieben, nicht davor (siehe ADR 0006). Das Ergebnis sagt,
+  /// wer die Bedingung durchgesetzt hat.
+  Future<Bedingung> verschiebeDatei(
     String von,
     String nach, {
     required String erwartet,
@@ -172,7 +209,7 @@ abstract class Kontextspeicher {
 
   /// Verschiebt eine Datei innerhalb der Wurzel, nachdem der Stand der Quelle
   /// geprüft ist. Journale wandern nicht: Sie werden nur angehängt.
-  Future<void> verschiebe(
+  Future<Bedingung> verschiebe(
     String von,
     String nach, {
     required String erwartet,
@@ -190,7 +227,7 @@ abstract class Kontextspeicher {
         "'$nach' already exists; nothing was moved. Choose another path.",
       );
     }
-    await verschiebeDatei(von, nach, erwartet: erwartet);
+    return verschiebeDatei(von, nach, erwartet: erwartet);
   }
 
   Future<Geschrieben> _speichern(
@@ -202,14 +239,21 @@ abstract class Kontextspeicher {
     await pruefeStand(relativ, erwartet: erwartet);
     final alt = (await holeInhalt(relativ))?.bytes ?? const <int>[];
     final neu = neuerInhalt(alt);
-    await ablegen(relativ, neu, erwartet: erwartet);
+    var bedingung = await ablegen(relativ, neu, erwartet: erwartet);
     final zurueck = await holeInhalt(relativ);
     if (zurueck == null) {
-      return const Geschrieben('', verifiziert: false);
+      return Geschrieben('', verifiziert: false, bedingung: bedingung);
+    }
+    // Eine neue Datei wird mit `If-None-Match: *` angelegt; ob der Server das
+    // erzwingt, zeigt sich daran, ob er für die Datei ein ETag kennt (ADR 0009).
+    if (bedingung == Bedingung.vomServer &&
+        zurueck.version.startsWith(inhaltsVersionPraefix)) {
+      bedingung = Bedingung.nurVomPlugin;
     }
     return Geschrieben(
       zurueck.version,
       verifiziert: _gleich(zurueck.bytes, neu),
+      bedingung: bedingung,
     );
   }
 
@@ -291,7 +335,7 @@ class LokalerSpeicher extends Kontextspeicher {
   }
 
   @override
-  Future<void> ablegen(
+  Future<Bedingung> ablegen(
     String relativ,
     List<int> bytes, {
     required String? erwartet,
@@ -305,6 +349,7 @@ class LokalerSpeicher extends Kontextspeicher {
     } on FileSystemException {
       throw KontextFehler("The file '$relativ' cannot be written.");
     }
+    return Bedingung.lokal;
   }
 
   /// Verschiebt ohne Überschreiben: Zuerst bekommt das Ziel einen zweiten Namen
@@ -314,7 +359,7 @@ class LokalerSpeicher extends Kontextspeicher {
   /// verschwindet der alte Name. Gibt es keine harten Verknüpfungen, scheitert
   /// es mit Grund; es wird dann nichts verschoben und nichts überschrieben.
   @override
-  Future<void> verschiebeDatei(
+  Future<Bedingung> verschiebeDatei(
     String von,
     String nach, {
     required String erwartet,
@@ -356,6 +401,7 @@ class LokalerSpeicher extends Kontextspeicher {
         "'$von' was copied to '$nach', but the original could not be removed. Both names exist; nothing was overwritten.",
       );
     }
+    return Bedingung.lokal;
   }
 
   /// Entfernt einen Namen, den dieser Aufruf selbst angelegt hat. Die Datei

@@ -131,6 +131,7 @@ class PluginProzess {
     bool mitPort = true,
     bool mitEntwicklung = false,
     String? fenster,
+    bool webdavSendetEtag = true,
   }) async {
     final port = await _freierPort();
     final app = FakeApp();
@@ -180,6 +181,7 @@ class PluginProzess {
         ordner: Directory(root),
         benutzer: testBenutzer,
         passwort: testPasswort,
+        sendetEtag: webdavSendetEtag,
       );
       await webdav.starten();
       // Ein Ersatz für secret-tool: Er kennt nur das Konto dieser Testanlage und

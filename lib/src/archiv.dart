@@ -50,6 +50,7 @@ Future<String> archiviere({
   }
 
   final verschoben = <_Verschiebung>[];
+  var nichtErzwungen = false;
   final vorher = <_Verschiebung>[];
   try {
     for (final name in dateien) {
@@ -94,7 +95,12 @@ Future<String> archiviere({
     // Nach der Freigabe prüft jede Verschiebung den Stand noch einmal (Konflikt,
     // wenn die Datei sich in der Wartezeit geändert hat) und das Ziel ein zweites Mal.
     for (final v in vorher) {
-      await speicher.verschiebe(v.von, v.nach, erwartet: v.inhalt.version);
+      final bedingung = await speicher.verschiebe(
+        v.von,
+        v.nach,
+        erwartet: v.inhalt.version,
+      );
+      if (bedingung == Bedingung.nurVomPlugin) nichtErzwungen = true;
       verschoben.add(v);
       final zurueck = await speicher.holeInhalt(v.nach);
       final quelle = await speicher.holeInhalt(v.von);
@@ -113,7 +119,8 @@ Future<String> archiviere({
 
   return 'verified\n'
       'moved: ${verschoben.length}\n'
-      '${[for (final v in verschoben) '- ${v.von} -> ${v.nach}'].join('\n')}';
+      '${[for (final v in verschoben) '- ${v.von} -> ${v.nach}'].join('\n')}'
+      '${nichtErzwungen ? '\n$hinweisNichtErzwungen' : ''}';
 }
 
 /// Prüft die Argumente, bevor etwas gelesen oder gefragt wird.

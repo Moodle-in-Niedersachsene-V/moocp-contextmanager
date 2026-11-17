@@ -428,7 +428,8 @@ Future<CallToolResult> _schreibVorgang({
     }
     return 'verified\n'
         'path: ${auftrag.pfad}\n'
-        'version: ${geschrieben.version}';
+        'version: ${geschrieben.version}'
+        '${geschrieben.hinweis == null ? '' : '\n${geschrieben.hinweis}'}';
   });
 }
 

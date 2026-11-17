@@ -138,7 +138,7 @@ Jede Meldung nennt beide Dateinamen. Ob das Original fehlt, sagt die Meldung auc
 Das Plugin löscht und verändert nichts. Die Lehrkraft vergleicht die beiden
 Fassungen und behält eine. `context_start` sucht im ganzen Kontextbereich, bis
 500 Ordner und 10 Ebenen tief und bricht nach 20 Sekunden ab; was danach liegt,
-wird nicht geprüft, und die Antwort sagt „not fully checked“. Andere Namensmuster, etwa deutsche Dropbox-Bezeichnungen,
+wird nicht geprüft, und die Antwort sagt „not fully checked“ mit der Ursache und der Zahl der geprüften Ordner. Andere Namensmuster, etwa deutsche Dropbox-Bezeichnungen,
 erkennt das Plugin nicht.
 
 ### Archivieren
@@ -186,6 +186,16 @@ die nicht im Aufbau des Plugins ist, bleibt unverändert.
 
 Der Wegweiser ist die einzige Datei, die das Plugin außerhalb des Kontextbereichs
 schreibt. Die Wurzel steht nie darin.
+
+### WebDAV-Server ohne ETag
+
+Sendet ein WebDAV-Server keine ETags, liest und schreibt das Plugin trotzdem. Die
+Version einer Datei ist dann eine Prüfsumme (`sha256:…`), und das Plugin vergleicht
+den Stand selbst unmittelbar vor dem Schreiben. Der Server erzwingt diese Prüfung
+nicht: Ändert jemand die Datei in den Sekundenbruchteilen dazwischen, geht die
+Änderung unbemerkt verloren. Jede Antwort eines Schreibvorgangs auf einem solchen
+Server enthält deshalb die Zeile „check: not enforced by the server“; mehr dazu in
+[E9](docs/adr/0009-version-ohne-etag.md).
 
 ### Antwortet der Kontextbereich nicht
 
@@ -237,7 +247,8 @@ E20 und E35 sind Entscheidungen von moocp.
   Lesen, Schreiben, Anhängen, Verschieben und Stand-Prüfung. Der lokale Ordner
   (`LokalerSpeicher`) löst Verknüpfungen auf und prüft jeden Pfad gegen die Wurzel.
 - `lib/src/webdav.dart`: der WebDAV-Server als zweiter Ort (`WebDavSpeicher`): ETag
-  als Version, bedingtes Schreiben ([E3](docs/adr/0003-webdav-version-und-bedingtes-schreiben.md)), Zeitlimit und Ausfall.
+  als Version, bedingtes Schreiben ([E3](docs/adr/0003-webdav-version-und-bedingtes-schreiben.md)),
+  ohne starkes ETag die Prüfsumme als Version ([E9](docs/adr/0009-version-ohne-etag.md)), Zeitlimit und Ausfall.
 - `lib/src/pfad.dart`: die Pfadregeln für beide Orte.
 - `lib/src/ort.dart`: der Zugang zum Ort aus den Einstellungen (jedes Mal neu gelesen).
 - `lib/src/schluesselbund.dart`: das Passwort aus dem Schlüsselbund über die Werkzeuge des Systems ([E4](docs/adr/0004-schluesselbund-und-verbindung.md)).
