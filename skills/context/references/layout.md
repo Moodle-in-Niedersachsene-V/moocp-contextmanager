@@ -14,7 +14,7 @@ Every level has an `index.md`. It only points: to the levels below it and to the
 
 - `habits.md`: how the teacher works, for example how the teacher addresses students or builds questions. Also the write mode (see SKILL.md).
 - `glossary.md`: terms with their meaning in the teacher's teaching.
-- `decisions/`: one short file per decision. It states the situation, the choice, and the reason. Only for surprising decisions with a real alternative.
+- `decisions/`: one short file per decision. It states the situation, the choice, and the reason. Only for surprising decisions with a real alternative. The reason comes only from a source; otherwise write `Reason: not recorded` and ask the teacher (Hard rule in SKILL.md).
 - `plan.md`: the target state of the unit, ordered by weeks or course sections. It never grows by date. Above 100 lines, split it: `plan/index.md` holds an overview and one file per week or section.
 - `journal/YYYY-MM-DD.md`: one file per day. Entries are appended with `context_append`, never replaced.
 
@@ -28,4 +28,4 @@ Every level has an `index.md`. It only points: to the levels below it and to the
 
 ## Old layout (Coursepilot)
 
-Old files stay readable as they are: `CONTEXT.md`, `status.md`, `journal-*.md`. New writes use the new layout. To restructure a unit: write the new files, then move the old ones into `archive/` with `context_archive`. Journals stay where they are. Then fix every reference to the moved files that `context_archive` reports in its `references:` part, in the same step (see SKILL.md, Signposts and archive).
+Old files stay readable as they are: `CONTEXT.md`, `status.md`, `journal-*.md`. New writes use the new layout. To restructure a unit: copy only the facts the old files state into the new files (reasons, dates and sources included; anything missing is `Reason: not recorded` and goes to the teacher, see the Hard rule in SKILL.md). Then move the old ones into `archive/` with `context_archive`. Journals stay where they are. Then fix every reference to the moved files that `context_archive` reports in its `references:` part, in the same step (see SKILL.md, Signposts and archive).

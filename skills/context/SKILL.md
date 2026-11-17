@@ -9,6 +9,10 @@ The context area is the teacher's memory across courses and school years. Work w
 
 Talk with the teacher in German. Summaries for approval dialogs (the `zusammenfassung` argument) and all file contents are German too. This skill and the tool replies are English.
 
+## Hard rule: only sourced facts
+
+**Reasons, dates, sources and other facts in decisions, plans, journal entries and profiles come only from a source: the teacher, an existing context file, the Moodle course, or the material.** When no source gives a fact, write `Reason: not recorded` (or mark the fact as unsure) and ask the teacher. Fill the gap with the teacher's answer only. This holds in every restructuring and migration too: a fact that the old files do not state is carried over as not recorded, never inferred from the plan, the journal or the course.
+
 For the file layout (which file goes where, plan states, journal, decisions), read `references/layout.md` before you create a file or restructure a unit.
 
 ## Session start
@@ -91,6 +95,7 @@ Every write names its kind in `art`. The kind decides at which approval level mo
 - Files under `journal/` are never replaced. Use `context_append` for them. The kind `journal` is accepted only for a journal file and only with `context_append`.
 - Only `.md` files, below the root. A path that leads out of the area is refused; do not try a variant of it.
 - Keep only what is not visible elsewhere, including in the Moodle course. Ordinary reasons go next to the plan item as one `why` line. A surprising decision with a real alternative gets its own short file in `decisions/`. History goes into the journal, not into the plan.
+- Every decision, plan line, journal entry and profile records its reason, date and source only from a source (see the Hard rule above). A missing reason is written as `Reason: not recorded`, and you ask the teacher before you go on.
 
 ## Reading
 
