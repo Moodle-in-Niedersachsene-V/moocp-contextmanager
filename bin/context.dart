@@ -43,17 +43,25 @@ Future<void> main(List<String> argumente) async {
   // Gibt es noch keine Einstellungen, öffnet die Lehrkraft das Fenster gleich (E8).
   if (!await einstellungen.exists()) await fenster.beiAusfall();
 
+  // Das Fenster endet mit dem Plugin, auf jedem Weg des Endes (E8).
+  var endet = false;
+  Future<void> enden() async {
+    if (endet) return;
+    endet = true;
+    await fenster.beenden();
+    await server.stop();
+    exit(0);
+  }
+
+  // Nur Linux und macOS: dort gibt es diese Signale.
+  ProcessSignal.sigterm.watch().listen((_) => enden());
+  ProcessSignal.sigint.watch().listen((_) => enden());
+
   // Zum Entwickeln von Hand: die Standardeingabe gehört nicht moocp.
   if (argumente.contains('--entwicklung')) return;
 
   // Endet die Standardeingabe, ist moocp fort: aufräumen und enden.
-  stdin.listen(
-    (_) {},
-    onDone: () async {
-      await server.stop();
-      exit(0);
-    },
-  );
+  stdin.listen((_) {}, onDone: enden);
 }
 
 String? _wert(List<String> argumente, String name) {

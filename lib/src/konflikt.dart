@@ -96,7 +96,8 @@ class KonfliktSuche {
   final bool zeitlimitErreicht;
 
   /// Ob die Suche alle Ordner des Kontextbereichs erfasst hat.
-  bool get vollstaendig => !begrenzt && !zeitlimitErreicht && unpruefbar.isEmpty;
+  bool get vollstaendig =>
+      !begrenzt && !zeitlimitErreicht && unpruefbar.isEmpty;
 }
 
 /// Sucht Konfliktkopien im ganzen Kontextbereich, breit zuerst. Ein Ordner, der

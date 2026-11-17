@@ -98,7 +98,9 @@ Future<String> archiviere({
       verschoben.add(v);
       final zurueck = await speicher.holeInhalt(v.nach);
       final quelle = await speicher.holeInhalt(v.von);
-      if (zurueck == null || quelle != null || !_gleich(zurueck.bytes, v.inhalt.bytes)) {
+      if (zurueck == null ||
+          quelle != null ||
+          !_gleich(zurueck.bytes, v.inhalt.bytes)) {
         throw KontextFehler(
           "not verified: '${v.nach}' does not read back with the same content.",
         );

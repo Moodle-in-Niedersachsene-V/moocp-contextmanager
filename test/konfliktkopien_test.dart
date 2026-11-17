@@ -108,7 +108,9 @@ void _tests(Ortsart art) {
       );
       expect(
         text,
-        contains("'notizen.sync-conflict-20261117-143000.md' is a conflict copy of 'notizen.md'"),
+        contains(
+          "'notizen.sync-conflict-20261117-143000.md' is a conflict copy of 'notizen.md'",
+        ),
       );
     });
 
@@ -121,20 +123,28 @@ void _tests(Ortsart art) {
       );
       expect(
         text,
-        contains("'wochen_conflict-nutzer-20261117-143000.md' is a conflict copy of 'wochen.md'"),
+        contains(
+          "'wochen_conflict-nutzer-20261117-143000.md' is a conflict copy of 'wochen.md'",
+        ),
       );
     });
 
-    test('„conflicted copy“ mit Benutzer und Zeit (neuere Form) wird erkannt', () async {
-      await schreibe('plan.md', 'Original\n');
-      await schreibe('plan (conflicted copy nutzer 2026-11-17 143000).md', 'Kopie\n');
-      final p = await laufendesPlugin();
-      final text = PluginProzess.text(
-        await p.werkzeug('context_list', {'pfad': ''}),
-      );
-      expect(text, contains("'plan.md'"));
-      expect(text, contains('conflicted copy nutzer 2026-11-17 143000'));
-    });
+    test(
+      '„conflicted copy“ mit Benutzer und Zeit (neuere Form) wird erkannt',
+      () async {
+        await schreibe('plan.md', 'Original\n');
+        await schreibe(
+          'plan (conflicted copy nutzer 2026-11-17 143000).md',
+          'Kopie\n',
+        );
+        final p = await laufendesPlugin();
+        final text = PluginProzess.text(
+          await p.werkzeug('context_list', {'pfad': ''}),
+        );
+        expect(text, contains("'plan.md'"));
+        expect(text, contains('conflicted copy nutzer 2026-11-17 143000'));
+      },
+    );
 
     test('gewöhnliche Namen ohne Muster werden nicht gemeldet', () async {
       await schreibe('plan (1).md', 'x\n');
@@ -152,43 +162,50 @@ void _tests(Ortsart art) {
   if (art == Ortsart.lokal) {
     // Die Zeitgrenze lässt sich am MCP-Seam nicht verkürzen; sie wird am Modul
     // geprüft, mit einer Grenze von null Sekunden.
-    test('läuft die Zeitgrenze ab, ist die Suche als unvollständig gekennzeichnet', () async {
-      await schreibe('plan.md', 'Original\n');
-      await schreibe('plan (Conflicted copy).md', 'Kopie\n');
-      final speicher = await LokalerSpeicher.oeffnen(root);
-      final suche = await sucheKonfliktkopien(speicher, zeitlimit: Duration.zero);
-      expect(suche.zeitlimitErreicht, isTrue);
-      expect(suche.funde, isEmpty);
-    });
+    test(
+      'läuft die Zeitgrenze ab, ist die Suche als unvollständig gekennzeichnet',
+      () async {
+        await schreibe('plan.md', 'Original\n');
+        await schreibe('plan (Conflicted copy).md', 'Kopie\n');
+        final speicher = await LokalerSpeicher.oeffnen(root);
+        final suche = await sucheKonfliktkopien(
+          speicher,
+          zeitlimit: Duration.zero,
+        );
+        expect(suche.zeitlimitErreicht, isTrue);
+        expect(suche.funde, isEmpty);
+      },
+    );
   }
 
   group('context_start meldet Konfliktkopien im ganzen Kontextbereich', () {
-    test('eine Kopie in einem Unterordner wird gefunden und beide Namen genannt', () async {
-      await schreibe('index.md', 'Index\n');
-      await schreibe('klassen/7b/mathe/plan.md', 'Original\n');
-      await schreibe(
-        'klassen/7b/mathe/plan (conflicted copy 2026-11-17).md',
-        'Kopie\n',
-      );
-      final p = await laufendesPlugin();
-      final ergebnis = await p.werkzeug('context_start', {});
-      expect(ergebnis['isError'], isNot(true));
-      final text = PluginProzess.text(ergebnis);
-      expect(text, contains('conflict copies: 1 found'));
-      expect(
-        text,
-        contains(
-          "'klassen/7b/mathe/plan (conflicted copy 2026-11-17).md' is a conflict copy of 'klassen/7b/mathe/plan.md'",
-        ),
-      );
-    });
+    test(
+      'eine Kopie in einem Unterordner wird gefunden und beide Namen genannt',
+      () async {
+        await schreibe('index.md', 'Index\n');
+        await schreibe('klassen/7b/mathe/plan.md', 'Original\n');
+        await schreibe(
+          'klassen/7b/mathe/plan (conflicted copy 2026-11-17).md',
+          'Kopie\n',
+        );
+        final p = await laufendesPlugin();
+        final ergebnis = await p.werkzeug('context_start', {});
+        expect(ergebnis['isError'], isNot(true));
+        final text = PluginProzess.text(ergebnis);
+        expect(text, contains('conflict copies: 1 found'));
+        expect(
+          text,
+          contains(
+            "'klassen/7b/mathe/plan (conflicted copy 2026-11-17).md' is a conflict copy of 'klassen/7b/mathe/plan.md'",
+          ),
+        );
+      },
+    );
 
     test('ohne Konfliktkopien steht „none“ da', () async {
       await schreibe('index.md', 'Index\n');
       final p = await laufendesPlugin();
-      final text = PluginProzess.text(
-        await p.werkzeug('context_start', {}),
-      );
+      final text = PluginProzess.text(await p.werkzeug('context_start', {}));
       expect(text, contains('conflict copies: none.'));
     });
 

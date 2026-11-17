@@ -61,7 +61,9 @@ Gewohnheit im Kontextbereich.
 Die Einrichtung geschieht im Einstellungsfenster. Es öffnet sich von selbst beim
 ersten Start ohne Einstellungen und, wenn der Kontextbereich nicht antwortet.
 Die KI kann es mit `context_settings` öffnen; sie sieht und setzt dabei keine
-Werte.
+Werte. Das Fenster schließt sich, wenn das Plugin endet. Blieb nach einem
+Absturz ein altes Fenster stehen, beendet der nächste Start es, bevor er ein
+neues öffnet; die Pid steht in `fenster.pid` im Datenordner.
 
 Im Fenster wählt die Lehrkraft:
 
@@ -245,7 +247,7 @@ E20 und E35 sind Entscheidungen von moocp.
 - `lib/src/werkzeuge.dart`: die MCP-Werkzeuge.
 - `lib/src/server.dart`: MCP-Server auf `127.0.0.1` mit Schlüsselprüfung.
 - `lib/src/einrichtung.dart`: die Einrichtung aus dem Fenster: Eingabe prüfen, Verbindung prüfen, speichern (Schlüsselbund vor Datei) und die deutschen Meldungen ([E8](docs/adr/0008-einstellungsfenster.md)).
-- `lib/src/einstellungsfenster.dart`: Start des Fensters: beim ersten Start ohne Einstellungen, einmal je Ausfall, auf Wunsch der KI (`context_settings`) ([E8](docs/adr/0008-einstellungsfenster.md)).
+- `lib/src/einstellungsfenster.dart`: Start des Fensters: beim ersten Start ohne Einstellungen, einmal je Ausfall, auf Wunsch der KI (`context_settings`); Ende des Fensters mit dem Plugin und Aufräumen eines Rests über `fenster.pid` ([E8](docs/adr/0008-einstellungsfenster.md)).
 - `fenster/`: das Einstellungsfenster als eigenes Flutter-Programm (Material 3, moocps Grundfarbe, `window_manager`). Es benutzt das Plugin über den Pfad `..`; `bauen.sh` legt es als `einstellungsfenster/` in den Plugin-Ordner.
 - `plugin.json`: Beschreibungsdatei für moocp.
 

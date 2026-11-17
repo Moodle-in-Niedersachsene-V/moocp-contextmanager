@@ -28,7 +28,10 @@ void _tests(Ortsart art) {
     await ordner.delete(recursive: true);
   });
 
-  Future<PluginProzess> laufend({String? fenster, bool mitEinstellungen = true}) async {
+  Future<PluginProzess> laufend({
+    String? fenster,
+    bool mitEinstellungen = true,
+  }) async {
     plugin = await PluginProzess.starten(
       ordner: ordner,
       ort: mitEinstellungen ? art : null,
@@ -47,6 +50,35 @@ void _tests(Ortsart art) {
 
     expect(p.fensterAufrufe, ['--einstellungen ${p.einstellungen.path}']);
   });
+
+  test(
+    'endet die Standardeingabe des Plugins, endet auch das offene Fenster',
+    () async {
+      final pidDatei = pfad.join(ordner.path, 'fenster-pid');
+      final skript = File(pfad.join(ordner.path, 'wartendes-fenster'));
+      await skript.writeAsString(
+        '#!/bin/sh\necho \$\$ > ${pidDatei}\nexec sleep 30\n',
+      );
+      Process.runSync('chmod', ['755', skript.path]);
+      final p = await laufend(fenster: skript.path, mitEinstellungen: false);
+      await _warteAuf(
+        () =>
+            File(pidDatei).existsSync() &&
+            File(pidDatei).readAsStringSync().trim().isNotEmpty,
+      );
+      final fensterPid = int.parse(File(pidDatei).readAsStringSync().trim());
+
+      await p.stdinSchliessen();
+      await p.prozess.exitCode.timeout(const Duration(seconds: 10));
+
+      final ps = Process.runSync('ps', ['-p', '$fensterPid', '-o', 'pid=']);
+      expect(
+        (ps.stdout as String).trim(),
+        isEmpty,
+        reason: 'das Fenster läuft nicht mehr',
+      );
+    },
+  );
 
   test('mit Einstellungen öffnet der Start kein Fenster', () async {
     final p = await laufend();
@@ -69,19 +101,22 @@ void _tests(Ortsart art) {
     expect(p.fensterAufrufe, hasLength(1));
   });
 
-  test('nach Wiederherstellung und einem neuen Ausfall öffnet es wieder', () async {
-    final p = await laufend();
-    await p.ausfallen();
-    await p.werkzeug('context_list', {'pfad': ''});
-    await p.wiederherstellen();
-    final ok = await p.werkzeug('context_list', {'pfad': ''});
-    expect(ok['isError'], isNot(isTrue));
+  test(
+    'nach Wiederherstellung und einem neuen Ausfall öffnet es wieder',
+    () async {
+      final p = await laufend();
+      await p.ausfallen();
+      await p.werkzeug('context_list', {'pfad': ''});
+      await p.wiederherstellen();
+      final ok = await p.werkzeug('context_list', {'pfad': ''});
+      expect(ok['isError'], isNot(isTrue));
 
-    await p.ausfallen();
-    await p.werkzeug('context_list', {'pfad': ''});
+      await p.ausfallen();
+      await p.werkzeug('context_list', {'pfad': ''});
 
-    expect(p.fensterAufrufe, hasLength(2));
-  });
+      expect(p.fensterAufrufe, hasLength(2));
+    },
+  );
 
   group('context_settings', () {
     test('öffnet das Fenster, und die Antwort enthält keinen Wert der Einstellungen', () async {

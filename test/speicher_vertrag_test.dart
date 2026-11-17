@@ -80,12 +80,19 @@ void _vertrag(Ortsart art) {
       expect(File(datei('b.md')).existsSync(), isFalse);
     });
 
-    test('mit dem gelesenen Stand wird verschoben, der Inhalt bleibt gleich', () async {
-      await File(datei('a.md')).writeAsString('inhalt\n');
-      await speicher.verschiebeDatei('a.md', 'archiv/b.md', erwartet: _sha('inhalt\n'));
-      expect(File(datei('a.md')).existsSync(), isFalse);
-      expect(File(datei('archiv/b.md')).readAsStringSync(), 'inhalt\n');
-    });
+    test(
+      'mit dem gelesenen Stand wird verschoben, der Inhalt bleibt gleich',
+      () async {
+        await File(datei('a.md')).writeAsString('inhalt\n');
+        await speicher.verschiebeDatei(
+          'a.md',
+          'archiv/b.md',
+          erwartet: _sha('inhalt\n'),
+        );
+        expect(File(datei('a.md')).existsSync(), isFalse);
+        expect(File(datei('archiv/b.md')).readAsStringSync(), 'inhalt\n');
+      },
+    );
   });
 
   test('die Liste zeigt Dateien und Ordner, sortiert nach Namen', () async {

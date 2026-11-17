@@ -399,6 +399,9 @@ class PluginProzess {
     return inhalt.map((e) => (e as Map)['text']).join('\n');
   }
 
+  /// Schließt die Standardeingabe des Plugins, wie wenn moocp endet.
+  Future<void> stdinSchliessen() => prozess.stdin.close();
+
   /// Beendet das Plugin und den Testserver der App.
   Future<void> beenden() async {
     prozess.kill();
