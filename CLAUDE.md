@@ -32,7 +32,7 @@ Git: Entwickelt wird auf GitHub (`Moodle-in-Niedersachsene-V/moocp-contextmanage
 
 ## Entscheidungen
 
-- [E1 Schreiben mit Stand und Freigabe](docs/adr/0001-schreiben-mit-stand-und-freigabe.md): Schreiben nur mit der gelesenen Version, Freigabe nach Art der Änderung, Journal nur anhängen, nur `.md` innerhalb der Wurzel.
+- [E1 Schreiben mit Stand und Freigabe](docs/adr/0001-schreiben-mit-stand-und-freigabe.md): Schreiben nur mit der gelesenen `version`, Konflikt bei geänderter Datei, Ersetzen nur mit `version`, Anlegen ohne `version` nur wenn es die Datei nicht gibt; jede Schreibung wird zurückgelesen und erst bei Gleichheit `verified`; Freigabe je nach Art (Journal, Nacharbeit, neue Datei ab „alle“; Planänderung, Planergänzung ab „mittel“); Datei am Wurzelordner mindestens „mittel“; Journal (`journal/`, `journal-*.md`) nur anhängen, unabhängig von der Art; nur `.md` innerhalb der Wurzel; Argumente deutsch; `art` ist KI-Angabe, Fehleinstufung ist bekannte Grenze von E20.
 
 Neue Entscheidungen bekommen die nächste freie Nummer (`0002-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
 

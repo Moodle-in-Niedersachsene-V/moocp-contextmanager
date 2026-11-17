@@ -87,10 +87,11 @@ void registriereWerkzeuge(
         'Creates a Markdown file in the teacher\'s context area, or replaces one. '
         'Omit version only to create a new file. To replace a file, pass the version '
         'from context_read; the write stops with a conflict if the file changed since. '
-        'Every write asks the teacher for approval in moocp and is read back before it '
-        'counts as verified. art names the kind of change: journal (use context_append '
-        'instead), correction, plan_change, plan_addition, new_file or root_file. '
-        'Only .md files; paths that leave the context area are refused.',
+        'Whether moocp asks the teacher for approval depends on her approval level and on '
+        'art, the kind of change: journal, correction, plan_change, plan_addition, new_file '
+        'or root_file. Files under journal/ cannot be replaced; use context_append. The write '
+        'is read back before it counts as verified. Only .md files; paths that leave the '
+        'context area are refused.',
     inputSchema: _schreibSchema(
       mitInhalt: 'The whole new content of the file.',
     ),
@@ -115,10 +116,10 @@ void registriereWerkzeuge(
         'Appends text to a Markdown file of the teacher\'s context area, for example a '
         'journal entry. Pass the version from context_read to append to an existing file; '
         'omit it only when the file does not exist yet, and it is created. The write stops '
-        'with a conflict if the file changed since it was read. Every append asks the '
-        'teacher for approval in moocp (for journal entries on the highest approval level) '
-        'and is read back before it counts as verified. art names the kind of change; see '
-        'context_write. Only .md files; paths that leave the context area are refused.',
+        'with a conflict if the file changed since it was read. Whether moocp asks the '
+        'teacher for approval depends on her approval level and on art (see context_write). '
+        'The append is read back before it counts as verified. Only .md files; paths that '
+        'leave the context area are refused.',
     inputSchema: _schreibSchema(mitInhalt: 'The text to append.'),
     annotations: const ToolAnnotations(
       title: 'Append to context file',
@@ -149,7 +150,9 @@ JsonObject _schreibSchema({required String mitInhalt}) => JsonSchema.object(
       enumValues: [for (final a in Art.values) a.wert],
     ),
     'zusammenfassung': JsonSchema.string(
-      description: 'A short summary in German (at most 500 characters) for the approval dialog of the teacher.',
+      description:
+          'A short summary in German for the approval dialog of the teacher.',
+      maxLength: 500,
     ),
     'version': JsonSchema.string(
       description: 'The version from context_read of the file that is changed. Omit only to create a new file.',
@@ -174,6 +177,11 @@ Future<CallToolResult> _schreibVorgang({
     final zusammenfassung = _text(args, 'zusammenfassung');
     final art = _art(args);
     final version = _optionalerText(args, 'version');
+    if (zusammenfassung.trim().isEmpty) {
+      throw const KontextFehler(
+        "The summary is empty: pass a short German summary of the change in 'zusammenfassung'.",
+      );
+    }
     if (zusammenfassung.length > 500) {
       throw const KontextFehler(
         'The summary is longer than 500 characters; shorten it and try again.',
@@ -185,7 +193,9 @@ Future<CallToolResult> _schreibVorgang({
         'root_file is only for a file directly in the context root; use new_file or another kind for a file in a folder.',
       );
     }
-    if (!anhaengen && art == Art.journal) {
+    // Ein Journal wird nur angehängt. Die Bindung hängt am Pfad, nicht an der Art,
+    // die die KI nennt; `art: journal` außerhalb von journal/ ist ebenfalls abgewiesen.
+    if (!anhaengen && (istJournalPfad(pfad) || art == Art.journal)) {
       throw KontextFehler(
         "A journal is only appended, never replaced: use context_append for '$pfad'.",
       );

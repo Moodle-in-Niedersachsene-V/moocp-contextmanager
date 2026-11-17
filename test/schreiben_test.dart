@@ -179,15 +179,127 @@ void main() {
       );
     });
 
-    test('eine Datei am Wurzelordner verlangt die Art root_file, und root_file nur dort', () async {
+    test(
+      'die Art root_file wird für eine Datei in einem Ordner abgewiesen',
+      () async {
+        final p = await laufendesPlugin(stufe: 'alle');
+        final falsch = await p.werkzeug(
+          'context_write',
+          schreiben(
+            pfadArg: 'unterricht/x.md',
+            inhalt: 'x\n',
+            art: 'root_file',
+          ),
+        );
+        expect(falsch['isError'], isTrue);
+        expect(File(datei('unterricht/x.md')).existsSync(), isFalse);
+        expect(p.app.freigaben, isEmpty);
+      },
+    );
+
+    test('ein Journal wird auch mit einer anderen Art nicht ersetzt', () async {
+      await schreibeDatei('journal/2026-11-17.md', 'hallo\n');
       final p = await laufendesPlugin(stufe: 'alle');
-      final falsch = await p.werkzeug(
-        'context_write',
-        schreiben(pfadArg: 'unterricht/x.md', inhalt: 'x\n', art: 'root_file'),
+      for (final art in ['correction', 'new_file', 'plan_change']) {
+        final ergebnis = await p.werkzeug(
+          'context_write',
+          schreiben(
+            pfadArg: 'journal/2026-11-17.md',
+            inhalt: 'neu\n',
+            art: art,
+            version: versionHallo,
+          ),
+        );
+        expect(ergebnis['isError'], isTrue, reason: art);
+        expect(
+          PluginProzess.text(ergebnis),
+          contains('context_append'),
+          reason: art,
+        );
+      }
+      expect(
+        await File(datei('journal/2026-11-17.md')).readAsString(),
+        'hallo\n',
       );
-      expect(falsch['isError'], isTrue);
-      expect(File(datei('unterricht/x.md')).existsSync(), isFalse);
+      expect(p.app.freigaben, isEmpty);
     });
+
+    test(
+      'auch das alte Journal im Wurzelordner (journal-*.md) wird nicht ersetzt',
+      () async {
+        await schreibeDatei('journal-2026-11-17.md', 'hallo\n');
+        final p = await laufendesPlugin(stufe: 'alle');
+        final ergebnis = await p.werkzeug(
+          'context_write',
+          schreiben(
+            pfadArg: 'journal-2026-11-17.md',
+            inhalt: 'neu\n',
+            art: 'correction',
+            version: versionHallo,
+          ),
+        );
+        expect(ergebnis['isError'], isTrue);
+        expect(
+          await File(datei('journal-2026-11-17.md')).readAsString(),
+          'hallo\n',
+        );
+        expect(p.app.freigaben, isEmpty);
+      },
+    );
+
+    test('eine leere Zusammenfassung wird vor der Freigabe abgewiesen und nennt den nächsten Schritt', () async {
+      final p = await laufendesPlugin(stufe: 'alle');
+      final ergebnis = await p.werkzeug(
+        'context_write',
+        schreiben(
+          pfadArg: 'unterricht/notizen.md',
+          inhalt: 'hallo\n',
+          art: 'new_file',
+          zusammenfassung: '',
+        ),
+      );
+      expect(ergebnis['isError'], isTrue);
+      expect(PluginProzess.text(ergebnis), contains('zusammenfassung'));
+      expect(PluginProzess.text(ergebnis), contains('summary'));
+      expect(p.app.freigaben, isEmpty);
+      expect(File(datei('unterricht/notizen.md')).existsSync(), isFalse);
+    });
+
+    test(
+      'Steuerzeichen im Pfad werden abgewiesen, bevor etwas geschieht',
+      () async {
+        final p = await laufendesPlugin(stufe: 'alle');
+        for (final pfadArg in ['notiz\nx.md', 'tab\tx.md']) {
+          final ergebnis = await p.werkzeug(
+            'context_write',
+            schreiben(pfadArg: pfadArg, inhalt: 'x\n', art: 'new_file'),
+          );
+          expect(ergebnis['isError'], isTrue, reason: pfadArg);
+        }
+        expect(p.app.freigaben, isEmpty);
+        expect(Directory(root).listSync(), isEmpty);
+      },
+    );
+
+    test(
+      'die Beschreibung der Schreibwerkzeuge verweist auf die Freigabestufe',
+      () async {
+        final p = await laufendesPlugin();
+        final liste = await p.anfragen('tools/list', {});
+        final werkzeuge = (liste['tools'] as List).cast<Map<String, dynamic>>();
+        for (final name in ['context_write', 'context_append']) {
+          final beschreibung =
+              werkzeuge.firstWhere((w) => w['name'] == name)['description']
+                  as String;
+          expect(beschreibung, contains('approval level'), reason: name);
+          expect(
+            beschreibung,
+            isNot(contains('Every write asks')),
+            reason: name,
+          );
+        }
+      },
+    );
   });
 
   group('context_append', () {

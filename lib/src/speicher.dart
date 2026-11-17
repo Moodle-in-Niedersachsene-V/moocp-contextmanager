@@ -133,6 +133,12 @@ class LokalerSpeicher {
     String inhalt, {
     required String? erwartet,
   }) {
+    // Die Bindung an den Pfad gilt hier, unabhängig von der Art, die die KI nennt.
+    if (istJournalPfad(relativ)) {
+      throw KontextFehler(
+        "A journal is only appended, never replaced: use context_append for '$relativ'.",
+      );
+    }
     final neu = utf8.encode(inhalt);
     return _speichern(relativ, erwartet: erwartet, neuerInhalt: (_) => neu);
   }
@@ -199,8 +205,11 @@ class LokalerSpeicher {
   /// Die Bestandteile eines relativen Pfads. Absolute Pfade, `~` und `..`
   /// werden abgewiesen, bevor etwas auf der Platte geschieht.
   List<String> _teile(String relativ) {
-    if (relativ.contains('\u0000')) {
-      throw const KontextFehler('The path is not valid.');
+    // Steuerzeichen (auch Zeilenende und Tab) haben in einem Dateinamen nichts zu suchen.
+    if (relativ.codeUnits.any((c) => c < 0x20 || c == 0x7f)) {
+      throw const KontextFehler(
+        'The path contains a control character and is not valid.',
+      );
     }
     if (p.posix.isAbsolute(relativ) ||
         p.windows.isAbsolute(relativ) ||
@@ -302,4 +311,18 @@ class LokalerSpeicher {
 
   static const _ausserhalb =
       'The path is outside the context area and is refused.';
+}
+
+/// Ob ein Pfad zum Journal gehört: Einträge unter `journal/` und das alte
+/// Journal im Wurzelordner (`journal-*.md`, Coursepilot). Das Journal wird nur
+/// angehängt, unabhängig davon, welche Art die KI angibt. Der Pfad allein
+/// entscheidet, nicht die Art.
+bool istJournalPfad(String relativ) {
+  final teile = relativ
+      .split('/')
+      .where((t) => t.isNotEmpty && t != '.')
+      .toList();
+  if (teile.isEmpty) return false;
+  if (teile.length > 1) return teile.first == 'journal';
+  return teile.first.startsWith('journal-') && teile.first.endsWith('.md');
 }
