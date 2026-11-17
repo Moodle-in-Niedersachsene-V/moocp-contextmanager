@@ -147,8 +147,7 @@ void _pruefeArgumente(
     // Nur .md, wie bei jedem Schreibvorgang; Journale wandern nie, auch nicht in
     // einem Journalordner unterhalb des Projekts.
     schreibTeile(von);
-    final liegtInJournal = ordnerTeile.any((t) => t.toLowerCase() == 'journal');
-    if (istJournalPfad(von) || liegtInJournal || name.toLowerCase().startsWith('journal-')) {
+    if (istJournalPfad(von)) {
       throw KontextFehler(
         "A journal is never moved: '$von' stays where it is.",
       );

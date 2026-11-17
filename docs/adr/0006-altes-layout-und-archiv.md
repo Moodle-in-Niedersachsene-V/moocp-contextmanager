@@ -14,9 +14,7 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). 
 
 **Freigabe wie bei einer neuen Datei.** Die Verschiebung fragt auf Stufe „alle“ (`Art.newFile`), nicht auf „mittel“ wie Planänderungen. Die Freigabe nennt nur Pfade im Kontextbereich, nie die Wurzel (A7).
 
-**Journale wandern nie.** Für die Verschiebung ist Journal alles unter `journal-*.md` und alles in einem Ordner namens `journal`, egal auf welcher Ebene. Ein altes Journal bleibt daher beim Umbau an seinem Platz.
-
-**Bekannte Lücke.** Die Schreibregel aus E1 (`istJournalPfad`) erkennt einen Ordner `journal` nur in der Wurzel. Ein Journal `<Projekt>/journal/` lässt sich mit `context_write` ersetzen. Das ist ein Fehler gegen die Projektstruktur der Spec, nicht Teil dieses Tickets; er ist offen zu klären.
+**Journale wandern nie.** Journal ist, was E1 als Journal fasst: `journal-*.md` und alles in einem Ordner `journal/`, auf jeder Ebene. Ein altes Journal bleibt daher beim Umbau an seinem Platz.
 
 **Kein Ausstand.** Eine Verschiebung hat keinen Inhalt, den ein Ausstand nachtragen könnte. Antwortet der Ort nicht, wird nichts verschoben, die Antwort nennt den Grund und sagt, dass nichts verschoben wurde. Die Wiederholung geschieht durch einen neuen Aufruf.
 

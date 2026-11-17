@@ -98,6 +98,66 @@ void _tests(Ortsart art) {
     });
   });
 
+  group('Journale auf jeder Ebene (E1): nur anhängen', () {
+    test('<projekt>/journal/x.md wird ersetzt abgewiesen, Anhängen geht', () async {
+      await schreibe('klassen/7b/mathe/journal/2026-11-17.md', 'erster Eintrag\n');
+      final p = await laufendesPlugin();
+      final gelesen = await p.werkzeug('context_read', {
+        'pfad': 'klassen/7b/mathe/journal/2026-11-17.md',
+      });
+      final version = RegExp(r'version: (\w+)')
+          .firstMatch(PluginProzess.text(gelesen))!
+          .group(1)!;
+
+      final ersetzt = await p.werkzeug('context_write', {
+        'pfad': 'klassen/7b/mathe/journal/2026-11-17.md',
+        'inhalt': 'ersetzt',
+        'art': 'correction',
+        'zusammenfassung': 'Versuch zu ersetzen',
+        'version': version,
+      });
+      expect(ersetzt['isError'], isTrue, reason: PluginProzess.text(ersetzt));
+      expect(
+        File(pfad.join(root, 'klassen', '7b', 'mathe', 'journal', '2026-11-17.md'))
+            .readAsStringSync(),
+        'erster Eintrag\n',
+      );
+
+      final angehaengt = await p.werkzeug('context_append', {
+        'pfad': 'klassen/7b/mathe/journal/2026-11-17.md',
+        'inhalt': 'zweiter Eintrag',
+        'art': 'journal',
+        'zusammenfassung': 'Eintrag ergänzt',
+        'version': version,
+      });
+      expect(PluginProzess.text(angehaengt), startsWith('verified'));
+    });
+
+    test('ein journal-*.md auf Projektebene wird ersetzt abgewiesen', () async {
+      await schreibe('klassen/7b/mathe/journal-2026-10-01.md', 'alt\n');
+      final p = await laufendesPlugin();
+      final gelesen = await p.werkzeug('context_read', {
+        'pfad': 'klassen/7b/mathe/journal-2026-10-01.md',
+      });
+      final version = RegExp(r'version: (\w+)')
+          .firstMatch(PluginProzess.text(gelesen))!
+          .group(1)!;
+      final ersetzt = await p.werkzeug('context_write', {
+        'pfad': 'klassen/7b/mathe/journal-2026-10-01.md',
+        'inhalt': 'ersetzt',
+        'art': 'correction',
+        'zusammenfassung': 'Versuch zu ersetzen',
+        'version': version,
+      });
+      expect(ersetzt['isError'], isTrue, reason: PluginProzess.text(ersetzt));
+      expect(
+        File(pfad.join(root, 'klassen', '7b', 'mathe', 'journal-2026-10-01.md'))
+            .readAsStringSync(),
+        'alt\n',
+      );
+    });
+  });
+
   group('altes Layout: context_start', () {
     test('ohne index.md liest context_start die CONTEXT.md der Wurzel als Index', () async {
       await schreibe('CONTEXT.md', 'Index aus dem alten Layout\n');

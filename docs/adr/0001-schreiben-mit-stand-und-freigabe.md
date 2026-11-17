@@ -10,7 +10,7 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md).
 
 **Rücklesen.** Nach jedem Schreiben liest das Plugin die Datei zurück. Nur bei Gleichheit meldet es `verified`; das Urteil fällt das Werkzeug.
 
-**Journal.** Dateien unter `journal/` und das alte Journal `journal-*.md` im Wurzelordner werden nur angehängt, nie ersetzt. Die Bindung hängt am Pfad und gilt für jede Art.
+**Journal.** Journale werden nur angehängt, nie ersetzt, und nie verschoben. Dazu gehören Dateien unter einem Ordner `journal/` auf jeder Ebene (etwa `<projekt>/journal/`) und `journal-*.md` auf jeder Ebene (altes Coursepilot-Journal). Die Bindung hängt am Pfad und gilt für jede Art.
 
 **Geltungsbereich.** Geschrieben werden nur `.md`-Dateien innerhalb der Wurzel. Steuerzeichen im Pfad sind ungültig. Eine leere oder zu lange Zusammenfassung wird vor der Freigabe abgewiesen.
 

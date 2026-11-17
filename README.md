@@ -139,7 +139,7 @@ Freigabestufe in moocp:
 
 Eine abgelehnte oder abgebrochene Freigabe schreibt nichts, und die Antwort sagt
 es. Die Datei wird nie überschrieben, wenn sie sich seit dem Lesen geändert hat.
-Journaleinträge werden nur angehängt.
+Journaleinträge werden nur angehängt, auch in Journalordnern unterhalb der Wurzel.
 
 ### Wegweiser im Materialordner
 

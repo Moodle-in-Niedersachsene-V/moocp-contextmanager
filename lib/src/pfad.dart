@@ -43,10 +43,10 @@ List<String> schreibTeile(String relativ) {
   return teile;
 }
 
-/// Ob ein Pfad zum Journal gehört: Einträge unter `journal/` und das alte
-/// Journal im Wurzelordner (`journal-*.md`, Coursepilot). Das Journal wird nur
-/// angehängt, unabhängig davon, welche Art die KI angibt. Der Pfad allein
-/// entscheidet, nicht die Art.
+/// Ob ein Pfad zum Journal gehört, auf jeder Ebene (E1): ein Ordner `journal/`
+/// in einem beliebigen Projektordner und darin, sowie `journal-*.md` in einem
+/// beliebigen Ordner (Coursepilot). Journale werden nur angehängt, nie ersetzt
+/// und nie verschoben. Der Pfad allein entscheidet, nicht die Art.
 ///
 /// Der Vergleich ignoriert Groß- und Kleinschreibung: Auf macOS und Windows
 /// ist `Journal/x.md` dieselbe Datei wie `journal/x.md`, und die Sperre
@@ -58,6 +58,7 @@ bool istJournalPfad(String relativ) {
       .map((t) => t.toLowerCase())
       .toList();
   if (teile.isEmpty) return false;
-  if (teile.length > 1) return teile.first == 'journal';
-  return teile.first.startsWith('journal-') && teile.first.endsWith('.md');
+  final letzter = teile.last;
+  if (letzter.startsWith('journal-') && letzter.endsWith('.md')) return true;
+  return teile.sublist(0, teile.length - 1).contains('journal');
 }
