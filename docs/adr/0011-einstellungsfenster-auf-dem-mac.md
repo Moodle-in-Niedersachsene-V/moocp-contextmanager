@@ -1,0 +1,21 @@
+# E11 Einstellungsfenster auf dem Mac und Installer
+
+Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). Ergänzt [E8](0008-einstellungsfenster.md) für macOS; keine Ausnahme zu A1 bis A7. Die Prüfsumme der Zustimmung ist E35 von moocp.
+
+## Entscheidung
+
+**Das Fenster als Archiv im Plugin-Ordner.** Auf dem Mac ist das Einstellungsfenster ein Bündel `kontext_einstellungen.app`, und seine Frameworks enthalten Verknüpfungen (`Versions/Current` und die Verweise darauf). moocp lehnt einen Plugin-Ordner mit Verknüpfungen ab, weil die Prüfsumme der Zustimmung ihr Ziel nicht erfassen könnte. `bauen.sh` legt das Bündel deshalb als `einstellungsfenster.zip` (mit `ditto`, das Verknüpfungen, Rechte und Signatur erhält) in den Plugin-Ordner. Das Archiv ist eine gewöhnliche Datei und zählt zur Prüfsumme.
+
+**Vor jedem Öffnen frisch auspacken.** Das Plugin packt das Archiv vor jedem Start des Fensters in seinen Datenordner aus (`einstellungsfenster/` neben `einstellungen.json`) und startet das Programm im Bündel von dort. Ein früherer Stand wird vorher ganz entfernt, eine Verknüpfung an dieser Stelle ersetzt, nie gefolgt. Ausgepackt wird erst, nachdem ein Rest eines früheren Laufs beendet ist (E8), denn der Rest liefe aus den Dateien, die das Auspacken ersetzt. Fehlt das Archiv oder scheitert das Auspacken, startet kein Fenster; ein alter ausgepackter Stand bleibt nicht stehen. Die Antwort an die KI sagt nur, dass das Fenster nicht ausgepackt werden konnte; der Grund mit Pfaden geht in die Fehlerausgabe des Plugins. So läuft nur ein Fenster, das aus dem zugestimmten Stand kommt (A1).
+
+**Lücke in moocp.** Dass ein Plugin für macOS kein Bündel in seinem Ordner haben kann, ist eine Lücke der Plugin-Schnittstelle, gemeldet in moocp #101. Das Archiv ist eine Übergangslösung; erlaubt moocp Verknüpfungen innerhalb des Plugin-Ordners, liegt das Fenster wie unter Linux als Ordner darin.
+
+**Ohne Sandbox.** Das Fenster liest und schreibt die Einstellungen im Datenordner des Plugins, ruft `security` auf und prüft die Verbindung zum WebDAV-Server. In der Sandbox läge der Datenordner im Container des Fensters, und das Plugin fände die Einstellungen nicht. Das Fenster kommt nicht aus dem App Store.
+
+**Passwort lesen mit `-g`.** `security find-generic-password -w` gibt ein Passwort mit Zeichen außerhalb von ASCII als Hexziffern aus, ununterscheidbar von einem Passwort aus Hexziffern. Das Plugin liest deshalb mit `-g` die Zeile `password: "…"` bzw. `password: 0x… "…"` aus der Fehlerausgabe und dekodiert die Hexform als UTF-8 (ergänzt E4).
+
+**Installer als Paket.** `installer_mac.sh` baut `<kurzname>_setup_<Version>.pkg` (pkgbuild, productbuild) mit den Regeln des Installers aus dem Beispiel-Plugin von moocp: nur für den angemeldeten Benutzer und ohne Administratorrechte nach `~/Library/Application Support/moocp/plugins/<kurzname>`, Abbruch ohne moocp (Prüfung im Installer mit Text, dazu `preinstall`), der Plugin-Ordner wird vorher ganz geleert, kein Prozess wird beendet. Ein laufendes Plugin stört unter macOS nicht: Es behält seine geöffnete Datei. Das Paket ist nicht signiert; macOS warnt beim ersten Öffnen, und die Lehrkraft öffnet es über „Datenschutz & Sicherheit“. Was ein Paket installiert, trägt keine Quarantäne, also starten Plugin und Fenster danach ohne weitere Warnung. Nur Apple Silicon: `dart compile exe` übersetzt nur für den eigenen Prozessor. Einen Uninstaller im Plugin-Ordner gibt es nicht; deinstalliert wird durch Löschen des Ordners (README).
+
+## Verworfen
+
+Das Bündel außerhalb des Plugin-Ordners, vom Installer abgelegt: Das gestartete Programm wäre nicht von der Zustimmung erfasst. Die Verknüpfungen im Bündel durch Kopien ersetzen: Ein Framework ohne `Versions/Current` ist für macOS kein gültiges Bündel, die Signatur bräche. Das Archiv nur einmal auspacken und den Stand wiederverwenden: Ein veränderter Stand im Datenordner liefe dann ohne Zustimmung. Ein Abbild (`.dmg`) zum Ziehen: Die kopierten Dateien trügen die Quarantäne, und die Regeln für Installer aus dem Beispiel-Plugin (Ort fest, Ordner ganz ersetzen, Abbruch ohne moocp) hielte niemand ein. Ein signiertes und notarisiertes Paket: Es braucht ein Entwicklerkonto bei Apple, das das Projekt nicht hat.

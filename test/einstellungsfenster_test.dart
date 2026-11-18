@@ -284,9 +284,79 @@ void main() {
   });
 
   test('das Standardprogramm liegt neben dem Plugin, im Ordner einstellungsfenster', () {
-    final pfad = standardFensterProgramm();
+    final pfad = Einstellungsfenster.standard(einstellungen: einstellungen).programm;
 
     expect(p.basename(pfad), 'kontext_einstellungen');
     expect(p.basename(p.dirname(pfad)), 'einstellungsfenster');
   }, skip: Platform.isLinux ? null : 'nur für Linux geprüft');
+
+  test('auf dem Mac liegt das Standardprogramm ausgepackt im Datenordner, nicht im Plugin-Ordner', () {
+    final f = Einstellungsfenster.standard(einstellungen: einstellungen);
+
+    expect(
+      f.programm,
+      p.join(ordner.path, 'einstellungsfenster', 'kontext_einstellungen.app', 'Contents',
+          'MacOS', 'kontext_einstellungen'),
+    );
+  }, skip: Platform.isMacOS ? null : 'nur für macOS geprüft');
+
+  group('Vorbereiten (Fensterarchiv auf dem Mac, E11)', () {
+    Einstellungsfenster mitVorbereiten(
+      Future<void> Function() vorbereiten, {
+      Future<String?> Function(int pid)? befehlszeile,
+    }) => Einstellungsfenster(
+      programm: '/fenster/kontext_einstellungen',
+      einstellungen: einstellungen,
+      starten: wartender,
+      befehlszeile: befehlszeile,
+      vorbereiten: vorbereiten,
+      wartezeit: const Duration(milliseconds: 300),
+    );
+
+    test('vor jedem Start wird vorbereitet, auch beim zweiten Öffnen', () async {
+      var vorbereitet = 0;
+      final f = mitVorbereiten(() async => vorbereitet++);
+
+      await f.oeffnen();
+      expect(vorbereitet, 1);
+      expect(gestartet, hasLength(1));
+      prozesse.last.kill();
+      await prozesse.last.exitCode;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await f.oeffnen();
+
+      expect(vorbereitet, 2);
+      expect(gestartet, hasLength(2));
+    });
+
+    test('scheitert das Vorbereiten, startet kein Fenster und die Antwort nennt den Grund ohne Pfad', () async {
+      final f = mitVorbereiten(
+        () async => throw const FensterVorbereitungsFehler('/geheim/pfad fehlt'),
+      );
+
+      final ergebnis = await f.oeffnen();
+
+      expect(ergebnis.stand, FensterStand.nichtGestartet);
+      expect(ergebnis.meldung, contains('could not be unpacked'));
+      expect(ergebnis.meldung, isNot(contains('/geheim')));
+      expect(gestartet, isEmpty);
+    });
+
+    test('ein Rest eines früheren Laufs endet, bevor vorbereitet wird', () async {
+      const zeile = '/fenster/kontext_einstellungen --einstellungen x';
+      final alt = await rest(zeile);
+      var restLebteBeimVorbereiten = true;
+      var beendet = false;
+      unawaited(alt.exitCode.then((_) => beendet = true));
+      final f = mitVorbereiten(
+        () async => restLebteBeimVorbereiten = !beendet,
+        befehlszeile: zeigt(alt, zeile),
+      );
+
+      await f.oeffnen();
+
+      expect(restLebteBeimVorbereiten, isFalse,
+          reason: 'das Auspacken ersetzt die Dateien, aus denen der Rest läuft');
+    });
+  });
 }

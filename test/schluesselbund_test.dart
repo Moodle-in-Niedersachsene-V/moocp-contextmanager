@@ -22,17 +22,24 @@ void main() {
     await ordner.delete(recursive: true);
   });
 
-  /// Ein Ersatz für das Werkzeug: gibt [ausgabe] aus und endet mit [exitCode].
+  /// Ein Ersatz für das Werkzeug: gibt [ausgabe] als Passwort aus, so wie das
+  /// Werkzeug des Systems es zeigt, und endet mit [exitCode]. `secret-tool`
+  /// (Linux) schreibt das Passwort auf die Standardausgabe, `security -g`
+  /// (macOS) eine Zeile `password: "…"` auf die Fehlerausgabe.
   Future<String> ersatz({
     required String ausgabe,
     required int exitCode,
   }) async {
     final datei = File(p.join(ordner.path, 'werkzeug'));
-    await datei.writeAsString(
-      '#!/bin/sh\n'
-      "printf '%s' '$ausgabe'\n"
-      'exit $exitCode\n',
-    );
+    final String zeigen;
+    if (!Platform.isMacOS) {
+      zeigen = "printf '%s' '$ausgabe'\n";
+    } else if (ausgabe.isEmpty) {
+      zeigen = '';
+    } else {
+      zeigen = "printf 'password: \"%s\"\\n' '$ausgabe' >&2\n";
+    }
+    await datei.writeAsString('#!/bin/sh\n${zeigen}exit $exitCode\n');
     Process.runSync('chmod', ['755', datei.path]);
     return datei.path;
   }
@@ -114,10 +121,19 @@ void main() {
     await SystemSchluesselbund(werkzeug: datei.path)
         .speichere('nutzer@adresse', testPasswort);
 
-    expect(File(eingabe).readAsStringSync(), testPasswort);
     final zeilen = File(argumente).readAsLinesSync();
-    expect(zeilen, containsAll(['moocp-contextmanager', 'nutzer@adresse']));
     expect(zeilen.join(' '), isNot(contains(testPasswort)));
+    if (Platform.isMacOS) {
+      // `security -i` liest den ganzen Befehl von der Standardeingabe.
+      expect(zeilen, ['-i']);
+      expect(
+        File(eingabe).readAsStringSync(),
+        'add-generic-password -U -s moocp-contextmanager -a "nutzer@adresse" -w "$testPasswort"\n',
+      );
+    } else {
+      expect(File(eingabe).readAsStringSync(), testPasswort);
+      expect(zeilen, containsAll(['moocp-contextmanager', 'nutzer@adresse']));
+    }
   });
 
   test('speichern: scheitert das Werkzeug, ist das ein Fehler mit Grund ohne Passwort', () async {
@@ -169,5 +185,47 @@ void main() {
       SystemSchluesselbund(werkzeug: werkzeug).geheimnis('nutzer@adresse'),
       throwsA(isA<KontextFehler>()),
     );
+  });
+
+  group('Ausgabe von security -g (macOS)', () {
+    test('ein Passwort aus druckbaren Zeichen steht in Anführungszeichen, auch mit Anführungszeichen darin', () {
+      expect(passwortAusSecurity('password: "abc"\n'), 'abc');
+      expect(passwortAusSecurity('password: "x" y "z"\n'), 'x" y "z');
+      expect(passwortAusSecurity(r'password: "a\b"'), r'a\b');
+    });
+
+    test('ein Passwort mit Umlauten kommt als Hex und wird als UTF-8 gelesen', () {
+      expect(
+        passwortAusSecurity('password: 0xC3A420C3B6  "\\303\\244 \\303\\266"\n'),
+        'ä ö',
+      );
+    });
+
+    test('ein Passwort, das wie Hex aussieht, bleibt Text', () {
+      expect(passwortAusSecurity('password: "c3a4"\n'), 'c3a4');
+    });
+
+    test('ohne Passwortzeile oder mit unlesbarem Wert gibt es kein Passwort', () {
+      expect(passwortAusSecurity('keychain: "/x"\nclass: "genp"\n'), isNull);
+      expect(passwortAusSecurity('password: \n'), isNull);
+      expect(passwortAusSecurity('password: 0xFF  "\\377"\n'), isNull);
+    });
+
+    test('das echte security gibt ein gespeichertes Passwort mit Umlauten, Anführungszeichen und Backslash unverändert zurück', () async {
+      // Ein eigener Dienstname, damit kein Eintrag des Plugins berührt wird;
+      // der Eintrag wird am Ende gelöscht.
+      const passwort = r'Pä"ss \ wört';
+      final schluesselbund = SystemSchluesselbund(dienstname: 'moocp-contextmanager-test');
+      final konto = 'test-${DateTime.now().microsecondsSinceEpoch}@https://example.invalid/';
+      addTearDown(() => Process.run('security', [
+            'delete-generic-password', '-s', 'moocp-contextmanager-test', '-a', konto,
+          ]));
+
+      await schluesselbund.speichere(konto, passwort);
+
+      expect(await schluesselbund.geheimnis(konto), passwort);
+    }, skip: Platform.isMacOS && Platform.environment['KONTEXT_SCHLUESSELBUND_ECHT'] == '1'
+        ? null
+        : 'nur macOS mit KONTEXT_SCHLUESSELBUND_ECHT=1 (schreibt in den echten Schlüsselbund)');
   });
 }

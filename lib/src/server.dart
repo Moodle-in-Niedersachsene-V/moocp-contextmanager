@@ -26,11 +26,7 @@ StreamableMcpServer kontextServer({
     Directory(p.join(einstellungen.parent.path, 'ausstand')),
   );
   final einstellungsfenster =
-      fenster ??
-      Einstellungsfenster(
-        programm: standardFensterProgramm(),
-        einstellungen: einstellungen,
-      );
+      fenster ?? Einstellungsfenster.standard(einstellungen: einstellungen);
   final zugang = Ortszugang(
     einstellungen: einstellungen,
     schluesselbund: schluesselbund ?? SystemSchluesselbund(),

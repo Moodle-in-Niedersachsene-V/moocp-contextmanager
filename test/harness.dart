@@ -201,6 +201,22 @@ class PluginProzess {
         'exit 1\n',
       );
       Process.runSync('chmod', ['755', skript.path]);
+      // Dasselbe für security (macOS): `find-generic-password … -a <Konto> -g`
+      // zeigt das Passwort wie das echte Werkzeug als Zeile auf der
+      // Fehlerausgabe. So berührt der Test auch auf dem Mac nie den echten
+      // Schlüsselbund.
+      final mac = File(p.join(werkzeuge.path, 'security'));
+      await mac.writeAsString(
+        '#!/bin/sh\n'
+        '# Test-Ersatz für security: nur das Konto der Testanlage hat ein Passwort.\n'
+        'case "\$*" in\n'
+        '  "find-generic-password -s moocp-contextmanager -a $konto -g")\n'
+        '${webdavPasswort == null ? '    exit 44\n' : "    printf 'password: \"%s\"\\n' '$webdavPasswort' >&2\n    exit 0\n"}'
+        '    ;;\n'
+        'esac\n'
+        'exit 44\n',
+      );
+      Process.runSync('chmod', ['755', mac.path]);
       pfadMitSchluesselbund = '${werkzeuge.path}:$pfadMitSchluesselbund';
     }
 

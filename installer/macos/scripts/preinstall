@@ -1,0 +1,45 @@
+#!/bin/sh
+# Läuft vor dem Ablegen der Dateien, als angemeldeter Benutzer (das Paket
+# installiert nur in dessen Benutzerordner, distribution.xml). $2 ist der
+# Plugin-Ordner, ~/Library/Application Support/moocp/plugins/<kurzname>.
+#
+# Wie der Installer des Beispiel-Plugins von moocp:
+# - Ohne moocp bricht er ab, bevor er etwas schreibt. Die Prüfung im Installer
+#   (distribution.xml) sagt das schon vorher mit Text; diese hier deckt die
+#   Installation über die Kommandozeile ab.
+# - Er leert den Plugin-Ordner ganz: moocp bildet die Prüfsumme der Zustimmung
+#   über jede Datei darin, und eine Datei einer älteren Version gehörte sonst
+#   zur Zustimmung, ohne zur neuen Version zu gehören.
+# - Er beendet keinen Prozess. Ein laufendes Plugin stört unter macOS nicht: Es
+#   behält seine geöffnete alte Datei, und beim nächsten Start fragt moocp nach
+#   der Zustimmung zur neuen Version.
+set -eu
+
+PLUGINORDNER="$2"
+PLUGINS="$(dirname "$PLUGINORDNER")"
+MOOCP="$(dirname "$PLUGINS")"
+
+case "$PLUGINORDNER" in
+  */Library/Application\ Support/moocp/plugins/*) ;;
+  *)
+    echo "preinstall: unerwarteter Zielordner: $PLUGINORDNER" >&2
+    exit 1
+    ;;
+esac
+
+if [ ! -d "$MOOCP" ]; then
+  echo "preinstall: moocp ist nicht installiert ($MOOCP fehlt)." >&2
+  exit 1
+fi
+
+# Eine Verknüpfung an der Stelle des Plugin-Ordners wird entfernt, nie gefolgt.
+if [ -L "$PLUGINORDNER" ]; then
+  rm -f "$PLUGINORDNER"
+elif [ -e "$PLUGINORDNER" ]; then
+  rm -rf "$PLUGINORDNER"
+fi
+if [ -e "$PLUGINORDNER" ]; then
+  echo "preinstall: Der alte Plugin-Ordner ließ sich nicht entfernen: $PLUGINORDNER" >&2
+  exit 1
+fi
+exit 0

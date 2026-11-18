@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'fensterarchiv.dart';
+
 /// Das Einstellungsfenster (E8): ein eigenes Programm, das mit dem Plugin
 /// ausgeliefert wird. Das Plugin startet es, wenn die Einstellungen fehlen, wenn
 /// der Ort nicht antwortet (einmal je Ausfall) oder auf Wunsch der KI über
@@ -13,10 +15,35 @@ class Einstellungsfenster {
     required this.einstellungen,
     Future<Process> Function(String programm, List<String> argumente)? starten,
     Future<String?> Function(int pid)? befehlszeile,
+    Future<void> Function()? vorbereiten,
     this.wartezeit = const Duration(seconds: 3),
   }) : _starten = starten ?? _echtStarten,
        _befehlszeile = befehlszeile ?? _echteBefehlszeile,
+       _vorbereiten = vorbereiten,
        _pidDatei = File(p.join(p.dirname(einstellungen.path), 'fenster.pid'));
+
+  /// Das Fenster, wie das Plugin es ausliefert. Unter Linux liegt es als Bündel
+  /// im Ordner `einstellungsfenster` neben dem Programm des Plugins. Auf dem Mac
+  /// liegt es als Archiv dort (E11) und wird vor jedem Start frisch in den
+  /// Datenordner neben [einstellungen] ausgepackt.
+  factory Einstellungsfenster.standard({required File einstellungen}) {
+    final pluginOrdner = p.dirname(Platform.resolvedExecutable);
+    if (Platform.isMacOS) {
+      final ziel = Directory(p.join(einstellungen.parent.path, 'einstellungsfenster'));
+      return Einstellungsfenster(
+        programm: fensterProgrammIn(ziel),
+        einstellungen: einstellungen,
+        vorbereiten: () => packeFensterAus(
+          archiv: File(p.join(pluginOrdner, fensterArchivName)),
+          ziel: ziel,
+        ),
+      );
+    }
+    return Einstellungsfenster(
+      programm: p.join(pluginOrdner, 'einstellungsfenster', 'kontext_einstellungen'),
+      einstellungen: einstellungen,
+    );
+  }
 
   /// Das Programm des Fensters.
   final String programm;
@@ -33,6 +60,10 @@ class Einstellungsfenster {
   /// Die Kommandozeile eines Prozesses; null, wenn es ihn nicht gibt. Wirft
   /// [BefehlszeilenFehler], wenn sich das nicht feststellen lässt.
   final Future<String?> Function(int pid) _befehlszeile;
+
+  /// Was vor jedem Start geschieht, nachdem ein Rest beendet ist (auf dem Mac:
+  /// das Archiv auspacken). Wirft [FensterVorbereitungsFehler].
+  final Future<void> Function()? _vorbereiten;
 
   // Die Pid des offenen Fensters steht im Datenordner neben den Einstellungen.
   // Sie überlebt ein Plugin, das ohne Aufräumen endet (Absturz, SIGKILL): Der
@@ -194,6 +225,18 @@ class Einstellungsfenster {
       if (grund != null) {
         return FensterErgebnis(FensterStand.nichtGestartet, grund);
       }
+      // Erst nach dem Aufräumen: Das Auspacken ersetzt die Dateien, aus denen
+      // ein Rest liefe.
+      final vorbereiten = _vorbereiten;
+      if (vorbereiten != null) {
+        try {
+          await vorbereiten();
+        } on FensterVorbereitungsFehler catch (e) {
+          // Der Grund geht nur in die Fehlerausgabe des Plugins, nicht zur KI.
+          stderr.writeln('context: settings window: ${e.grund}');
+          return _nichtAusgepackt;
+        }
+      }
       prozess = await _starten(programm, ['--einstellungen', einstellungen.path]);
     } on ProcessException {
       return _nichtGestartet;
@@ -227,10 +270,26 @@ const _nichtGestartet = FensterErgebnis(
   FensterStand.nichtGestartet,
   'The settings window could not be started. Ask the teacher to open it from the plugin folder.',
 );
+// Ohne den Grund: Er nennt Pfade des Rechners, und die gehören nicht zur KI.
+const _nichtAusgepackt = FensterErgebnis(
+  FensterStand.nichtGestartet,
+  'The settings window could not be unpacked from the plugin folder. Ask the teacher to reinstall the plugin.',
+);
 const _restBleibt =
     'The settings window could not be started: an earlier settings window of the plugin is still open and did not end. Ask the teacher to close it.';
 const _restNichtGeprueft =
     'The settings window could not be started: an earlier settings window may still be open and could not be checked (the system tool ps failed). Ask the teacher to close it.';
+
+/// Das Vorbereiten des Fensters vor dem Start ist gescheitert; [grund] nennt
+/// die Ursache für das Protokoll, nie für die KI.
+class FensterVorbereitungsFehler implements Exception {
+  const FensterVorbereitungsFehler(this.grund);
+
+  final String grund;
+
+  @override
+  String toString() => 'FensterVorbereitungsFehler: $grund';
+}
 
 /// Die Kommandozeile eines Prozesses ließ sich nicht feststellen (`ps` fehlt oder
 /// scheitert), anders als "es gibt den Prozess nicht".
@@ -247,23 +306,6 @@ class FensterErgebnis {
 
   final FensterStand stand;
   final String meldung;
-}
-
-/// Das Programm des Fensters neben dem Plugin: im Ordner `einstellungsfenster`
-/// des Plugin-Ordners, so wie `bauen.sh` es ablegt.
-String standardFensterProgramm() {
-  final ordner = p.dirname(Platform.resolvedExecutable);
-  if (Platform.isMacOS) {
-    return p.join(
-      ordner,
-      'einstellungsfenster',
-      'kontext_einstellungen.app',
-      'Contents',
-      'MacOS',
-      'kontext_einstellungen',
-    );
-  }
-  return p.join(ordner, 'einstellungsfenster', 'kontext_einstellungen');
 }
 
 const _schluesselVariable = 'MOOCP_PLUGIN_SCHLUESSEL';

@@ -162,8 +162,8 @@ done
         ['bauen.sh', ziel],
         environment: {
           'DART': ersatz.path,
-          // Nur Linux baut das Fenster mit flutter; der Zweig ohne Fenster reicht hier.
-          'BAUEN_SYSTEM': 'Darwin',
+          // Linux und macOS bauen das Fenster mit flutter; der Zweig ohne Fenster reicht hier.
+          'BAUEN_SYSTEM': 'FreeBSD',
         },
       );
       expect(lauf.exitCode, 0, reason: '${lauf.stdout}\n${lauf.stderr}');

@@ -10,6 +10,7 @@ WebDAV-Server.
 ```
 bash bauen.sh                       # baut das Plugin nach build/context (braucht dart und flutter)
 bash entwickeln.sh /pfad/zu/moocp   # startet es zum Entwickeln an moocp
+bash installer_mac.sh               # Mac: baut den Installer installer/context_setup_<Version>.pkg
 ```
 
 Beim ersten Start öffnet sich das Einstellungsfenster. Dort richtet die
@@ -55,6 +56,32 @@ Kontextbereich liest und schreibt: zu Sitzungsbeginn, vor jedem Schreiben in
 Moodle, bei Freigaben und beim Wegweiser. Die Lehrkraft muss nichts davon
 einstellen; der Aufschreibmodus („fragen“, „immer“, „warten“) steht als
 Gewohnheit im Kontextbereich.
+
+### Installation auf dem Mac
+
+Auf dem Mac gibt es einen Installer, `context_setup_<Version>.pkg`. Er braucht
+einen Mac mit Apple Silicon (M1 oder neuer) und ein moocp, das schon einmal
+gestartet wurde; sonst bricht er mit einem Hinweis ab. Er installiert nur für den
+angemeldeten Benutzer und fragt nicht nach einem Administratorpasswort. moocp
+darf dabei offen bleiben; die Zustimmung fragt moocp beim nächsten Start.
+
+Der Installer ist nicht von Apple signiert. Beim ersten Doppelklick meldet macOS
+deshalb, dass es ihn nicht überprüfen kann, und bietet nur „Fertig“ oder „In den
+Papierkorb“ an. Dann „Fertig“ wählen, die Systemeinstellungen öffnen,
+„Datenschutz & Sicherheit“, ganz unten bei der Meldung zu
+`context_setup_<Version>.pkg` „Dennoch öffnen“ wählen und mit dem Passwort oder
+Touch ID bestätigen. Danach läuft der Installer normal durch; Plugin und
+Einstellungsfenster starten ohne weitere Warnung.
+
+Eine neue Version wird genauso installiert; sie ersetzt den Plugin-Ordner ganz,
+die Einstellungen im Datenordner bleiben. Deinstalliert wird, indem man den
+Ordner `~/Library/Application Support/moocp/plugins/context` löscht (im Finder mit
+„Gehe zu“ › „Gehe zum Ordner …“). Die Skills bietet moocp beim nächsten Start im
+Dialog „KI-Werkzeuge einrichten“ zum Entfernen an. Einstellungen und das
+ausgepackte Einstellungsfenster liegen in
+`~/Library/Application Support/moocp-contextmanager`, das Passwort im
+Schlüsselbund unter `moocp-contextmanager`; wer alles entfernen will, löscht auch
+diese.
 
 ### Einstellungen
 
@@ -258,8 +285,10 @@ E20 und E35 sind Entscheidungen von moocp.
 - `lib/src/werkzeuge.dart`: die MCP-Werkzeuge.
 - `lib/src/server.dart`: MCP-Server auf `127.0.0.1` mit Schlüsselprüfung.
 - `lib/src/einrichtung.dart`: die Einrichtung aus dem Fenster: Eingabe prüfen, Verbindung prüfen, speichern (Schlüsselbund vor Datei) und die deutschen Meldungen ([E8](docs/adr/0008-einstellungsfenster.md)).
+- `lib/src/fensterarchiv.dart`: das Fenster auf dem Mac: Auspacken von `einstellungsfenster.zip` aus dem Plugin-Ordner in den Datenordner vor jedem Start ([E11](docs/adr/0011-einstellungsfenster-auf-dem-mac.md)).
 - `lib/src/einstellungsfenster.dart`: Start des Fensters: beim ersten Start ohne Einstellungen, einmal je Ausfall, auf Wunsch der KI (`context_settings`); Ende des Fensters mit dem Plugin und Aufräumen eines Rests über `fenster.pid` ([E8](docs/adr/0008-einstellungsfenster.md)).
-- `fenster/`: das Einstellungsfenster als eigenes Flutter-Programm (Material 3, moocps Grundfarbe, `window_manager`). Es benutzt das Plugin über den Pfad `..`; `bauen.sh` legt es als `einstellungsfenster/` in den Plugin-Ordner.
+- `fenster/`: das Einstellungsfenster als eigenes Flutter-Programm (Material 3, moocps Grundfarbe, `window_manager`) für Linux und macOS (ohne Sandbox). Es benutzt das Plugin über den Pfad `..`; `bauen.sh` legt es unter Linux als `einstellungsfenster/`, auf dem Mac als `einstellungsfenster.zip` in den Plugin-Ordner.
+- `installer_mac.sh` und `installer/macos/`: der Installer für den Mac (siehe „Installer für den Mac“).
 - `plugin.json`: Beschreibungsdatei für moocp.
 
 ### Tests
@@ -270,8 +299,12 @@ TMPDIR=<Ordner auf der Platte> dart test -j 1 -r expanded
 
 Jede Test-Datei läuft zweimal, einmal am lokalen Ordner und einmal am WebDAV-Server
 im Testprozess (`fuerJedenOrt` in `test/harness.dart`). Der Server bedient den Ordner
-des Tests; das Passwort kommt von einem Ersatz für `secret-tool` im Ordner des Tests,
-der nur das Konto der Testanlage kennt. Der echte Schlüsselbund wird nie benutzt.
+des Tests; das Passwort kommt von einem Ersatz für `secret-tool` (Linux) bzw.
+`security` (Mac) im Ordner des Tests, der nur das Konto der Testanlage kennt. Der
+echte Schlüsselbund wird nie benutzt, außer mit `KONTEXT_SCHLUESSELBUND_ECHT=1` auf
+dem Mac: Dann speichert und liest `test/schluesselbund_test.dart` ein Passwort mit
+Umlauten unter einem eigenen Dienstnamen und löscht es wieder. Das Auspacken des
+Fensters prüft `test/fensterarchiv_test.dart` nur auf dem Mac.
 Der Skill und seine Ablage prüft `test/skill_test.dart`: jeder Werkzeugname und jede Art im Skill muss zum Plugin passen, und `bauen.sh` muss den Skill in den Zielordner kopieren (mit einem Ersatz für `dart`, der nur die Ausgabedatei anlegt).
 Die Vertragstests der Speicherschicht (gleiche Fälle für beide Orte) stehen in
 `test/speicher_vertrag_test.dart`, die WebDAV-Fälle (Ausfall, Zeitlimit, Anmeldung,
@@ -294,7 +327,31 @@ dort übersprungen.
 `entwickeln.sh <moocp>` erzeugt einen Schlüssel, startet das Plugin auf dem
 Port `entwicklungsPort` aus `plugin.json` mit `--entwicklung` und startet moocp
 mit `--plugin-entwicklung`. Das Plugin läuft dann, bis der Entwickler es beendet.
-Das Einstellungsfenster öffnet es aus `build/context/einstellungsfenster`, wenn
-`bauen.sh` das schon getan hat.
-Das Einstellungsfenster gibt es nur für Linux. Auf dem Mac baut `bauen.sh` das
-Plugin ohne Fenster und warnt dabei.
+Das Einstellungsfenster öffnet es aus `build/context/einstellungsfenster`, auf dem
+Mac aus dem Bau von flutter in `fenster/build/macos`, wenn `bauen.sh` es schon
+gebaut hat. Auf anderen Systemen baut `bauen.sh` das Plugin ohne Fenster und warnt
+dabei.
+
+### Auf dem Mac bauen
+
+Voraussetzung sind Flutter und Xcode (aus dem App Store, einmal gestartet).
+`bauen.sh` baut dann das Fenster mit `flutter build macos` und legt es als
+`einstellungsfenster.zip` in den Plugin-Ordner: Das Bündel `.app` enthält
+Verknüpfungen, und moocp lehnt einen Plugin-Ordner mit Verknüpfungen ab. Das
+Plugin packt das Archiv vor jedem Öffnen des Fensters in seinen Datenordner aus
+([E11](docs/adr/0011-einstellungsfenster-auf-dem-mac.md)). Programm und Fenster
+sind nur ad hoc signiert.
+
+### Installer für den Mac
+
+`bash installer_mac.sh` baut den Plugin-Ordner mit `bauen.sh` neu nach
+`build/context`, prüft, dass darin keine Verknüpfung liegt, und legt
+`installer/context_setup_<Version>.pkg` an; Kurzname, Version und Name kommen aus
+`plugin.json`. Unter genau diesem Namen gehört der Installer in ein Release, wie
+der Installer eines Plugins für Windows (`<kurzname>_setup_<Version>.exe`); auf
+dem Mac sucht moocp allerdings nicht nach Updates von Plugins. Das Paket
+installiert nur in den Benutzerordner, prüft mit `installer/macos/distribution.xml`,
+ob moocp eingerichtet ist, und leert in `installer/macos/scripts/preinstall` den
+alten Plugin-Ordner. Es braucht einen Mac mit Apple Silicon, denn `dart compile exe`
+übersetzt nur für den eigenen Prozessor. Ausprobieren ohne Doppelklick:
+`installer -pkg installer/context_setup_<Version>.pkg -target CurrentUserHomeDirectory`.

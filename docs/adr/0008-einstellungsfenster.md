@@ -23,7 +23,7 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). 
 
 **Schlüsselbund schreiben.** Linux über `secret-tool store` mit dem Passwort auf der Standardeingabe; macOS über `security -i`, damit das Passwort nie in einer Kommandozeile steht.
 
-**Plattformen.** Das Fenster gibt es nur für Linux. Auf dem Mac baut `bauen.sh` das Plugin ohne Fenster.
+**Plattformen.** Das Fenster gibt es für Linux und macOS. Unter Linux legt `bauen.sh` es als Ordner `einstellungsfenster/` in den Plugin-Ordner, auf dem Mac als Archiv ([E11](0011-einstellungsfenster-auf-dem-mac.md)).
 
 ## Verworfen
 
