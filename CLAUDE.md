@@ -45,7 +45,9 @@ Git: Entwickelt wird auf GitHub (`Moodle-in-Niedersachsene-V/moocp-contextmanage
 
 - [E10 Verweise nach dem Archivieren](docs/adr/0010-verweise-nach-dem-archivieren.md): `context_archive` sucht nach dem Verschieben in `index.md`/`CONTEXT.md` der Ebene, aller Ebenen darüber und darunter (ohne `archive/`) nach Verweisen auf verschobene Dateien (Markdown-Link, Backtick, Wort; relativ zur Ebene oder zur Wurzel) und nennt jede Stelle mit Datei und Zeile; die Suche liest nur, schreibt nie und ist begrenzt (Tiefe 10, 300 Ordner, 100 Indexdateien, 1 MiB je Datei, 8 s); jede Grenze, jeder Ausfall und jeder Zeitablauf steht als `INCOMPLETE` in der Antwort, nie als „nichts gefunden“; die KI korrigiert die Verweise im selben Schritt mit Freigabe (`plan_change`).
 
-Neue Entscheidungen bekommen die nächste freie Nummer (`0011-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
+- [E11 Einstellungsfenster auf dem Mac und Installer](docs/adr/0011-einstellungsfenster-auf-dem-mac.md): Auf dem Mac liegt das Fenster als `einstellungsfenster.zip` im Plugin-Ordner (moocp lehnt Verknüpfungen im Plugin-Ordner ab; Lücke in moocp #101); das Plugin packt es vor jedem Öffnen frisch in seinen Datenordner aus, nachdem ein Rest beendet ist, entfernt den alten Stand vorher ganz und startet ohne Archiv kein Fenster; Gründe mit Pfaden nur in die Fehlerausgabe, nie zur KI; Fenster ohne Sandbox; Passwort mit `security … -g` lesen, Hexform als UTF-8; Installer `installer_mac.sh` → unsigniertes `<kurzname>_setup_<Version>.pkg`, nur Benutzerordner ohne Adminrechte, Abbruch ohne moocp, Plugin-Ordner ganz ersetzen, nie einen Prozess beenden, nur arm64.
+
+Neue Entscheidungen bekommen die nächste freie Nummer (`0012-…`), siehe [docs/agents/domain.md](docs/agents/domain.md).
 
 ## Arbeitsregeln für die KI
 

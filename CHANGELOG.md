@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Neu: Das Plugin läuft auf dem Mac (Apple Silicon), mit Einstellungsfenster. Ein Installer `context_setup_<Version>.pkg` legt es ohne Administratorrechte in moocp ab und ersetzt eine ältere Version ganz.
+- Behoben: Auf dem Mac wurde ein Passwort mit Umlauten aus dem Schlüsselbund falsch gelesen, und die Anmeldung am WebDAV-Server scheiterte.
 - Neu: Die KI listet den Kontextbereich und liest Textdateien mit ihrer Version. Pfade, die aus dem Ordner hinausführen, werden abgewiesen.
 - Neu: Dateien über 100 Zeilen liest die KI zuerst über ihr Inhaltsverzeichnis aus den Überschriften; einen Abschnitt fordert sie über seine Überschrift an, auch mit der Markierung („## Woche 2“). Eine Überschrift in einem Codeblock zählt nicht; die ganze Datei liest sie nur auf ausdrückliche Bitte.
 - Neu: `context_start` beginnt jede Sitzung: Lage des Kontextbereichs, noch nicht gespeicherte Schreibvorgänge, Konfliktkopien, Wurzelindex und Wurzelgewohnheiten. Mit `wiederholen` werden die offenen Vorgänge nachgetragen.
