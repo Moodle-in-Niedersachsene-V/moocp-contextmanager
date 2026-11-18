@@ -29,7 +29,12 @@ export MOOCP_PLUGIN_SCHLUESSEL
 
 cd "$ORDNER"
 # Ist das Einstellungsfenster gebaut (bauen.sh), öffnet das Plugin es von dort.
-FENSTER="$ORDNER/build/context/einstellungsfenster/kontext_einstellungen"
+# Auf dem Mac direkt aus dem Bau von flutter, ohne das Archiv (E11).
+if [[ "$(uname -s)" == Darwin ]]; then
+  FENSTER="$ORDNER/fenster/build/macos/Build/Products/Release/kontext_einstellungen.app/Contents/MacOS/kontext_einstellungen"
+else
+  FENSTER="$ORDNER/build/context/einstellungsfenster/kontext_einstellungen"
+fi
 FENSTER_ARG=()
 if [[ -x "$FENSTER" ]]; then FENSTER_ARG=(--fenster "$FENSTER"); fi
 PLUGIN=""

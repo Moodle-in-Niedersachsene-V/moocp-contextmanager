@@ -110,6 +110,13 @@ void _tests(Ortsart art) {
     await p.ausfallen();
     await p.werkzeug('context_list', {'pfad': ''});
 
+    // Das Ersatz-Fenster schreibt seinen Aufruf erst, nachdem es gestartet
+    // ist; auf einem langsamen Rechner (macOS) kommt die Zeile etwas später
+    // als die Antwort des Werkzeugs.
+    final bis = DateTime.now().add(const Duration(seconds: 3));
+    while (p.fensterAufrufe.length < 2 && DateTime.now().isBefore(bis)) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
     expect(p.fensterAufrufe, hasLength(2));
   });
 

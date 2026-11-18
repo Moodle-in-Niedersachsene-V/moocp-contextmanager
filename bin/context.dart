@@ -3,7 +3,7 @@
 // für moocp tut, steht in der Schnittstelle des Beispiel-Plugins; die
 // Werkzeuge stehen in lib/src/werkzeuge.dart.
 //
-// Aufruf: context --port <Zahl> [--einstellungen <Datei>] [--entwicklung]
+// Aufruf: context --port <Zahl> [--einstellungen <Datei>] [--fenster <Programm>] [--entwicklung]
 // Der Schlüssel kommt aus MOOCP_PLUGIN_SCHLUESSEL, nie von der Kommandozeile.
 // --einstellungen ersetzt den Ort der Einstellungsdatei (Vorgabe: im Datenordner
 // des Plugins, siehe standardEinstellungenPfad); --entwicklung hält das Plugin am
@@ -29,10 +29,12 @@ Future<void> main(List<String> argumente) async {
     _wert(argumente, '--einstellungen') ?? standardEinstellungenPfad(),
   );
 
-  final fenster = Einstellungsfenster(
-    programm: _wert(argumente, '--fenster') ?? standardFensterProgramm(),
-    einstellungen: einstellungen,
-  );
+  // --fenster nennt ein Programm des Fensters, das ohne Auspacken startet
+  // (Entwicklung, entwickeln.sh); sonst gilt das ausgelieferte (E8, E11).
+  final fensterProgramm = _wert(argumente, '--fenster');
+  final fenster = fensterProgramm == null
+      ? Einstellungsfenster.standard(einstellungen: einstellungen)
+      : Einstellungsfenster(programm: fensterProgramm, einstellungen: einstellungen);
   final server = kontextServer(
     port: port,
     schluessel: schluessel,
