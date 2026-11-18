@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'fehler.dart';
@@ -23,8 +24,10 @@ class SystemSchluesselbund implements Schluesselbund {
   SystemSchluesselbund({
     String? werkzeug,
     Duration zeitlimit = const Duration(seconds: 15),
+    String dienstname = dienst,
   }) : _werkzeug = werkzeug,
-       _zeitlimit = zeitlimit;
+       _zeitlimit = zeitlimit,
+       _dienst = dienstname;
 
   /// Das Programm, das anstelle des Standards läuft; nur für Tests und
   /// ungewöhnliche Installationen.
@@ -37,6 +40,10 @@ class SystemSchluesselbund implements Schluesselbund {
   /// Der Dienstname, unter dem das Plugin seine Passwörter führt.
   static const dienst = 'moocp-contextmanager';
 
+  /// Der Dienstname dieses Zugangs: [dienst], im Test ein eigener, damit ein
+  /// Test am echten Schlüsselbund keinen Eintrag des Plugins berührt.
+  final String _dienst;
+
   @override
   Future<String> geheimnis(String konto) async {
     final ProcessResult ergebnis;
@@ -44,10 +51,14 @@ class SystemSchluesselbund implements Schluesselbund {
     final List<String> argumente;
     if (Platform.isMacOS) {
       programm = _werkzeug ?? 'security';
-      argumente = ['find-generic-password', '-s', dienst, '-a', konto, '-w'];
+      // `-g` statt `-w`: `-w` gibt ein Passwort mit Zeichen außerhalb von
+      // ASCII (Umlaute) als Hex aus, ununterscheidbar von einem Passwort aus
+      // Hexziffern. `-g` schreibt `password: "…"` oder `password: 0x… "…"` auf
+      // die Fehlerausgabe (passwortAusSecurity).
+      argumente = ['find-generic-password', '-s', _dienst, '-a', konto, '-g'];
     } else if (Platform.isLinux) {
       programm = _werkzeug ?? 'secret-tool';
-      argumente = ['lookup', 'service', dienst, 'account', konto];
+      argumente = ['lookup', 'service', _dienst, 'account', konto];
     } else {
       throw const KontextFehler(
         'The system keyring is not supported on this system; nothing was read.',
@@ -66,10 +77,12 @@ class SystemSchluesselbund implements Schluesselbund {
         'The password was not read; nothing was written.',
       );
     }
-    var geheimnis = ergebnis.stdout is String ? ergebnis.stdout as String : '';
-    // `security -w` schließt mit einem Zeilenende ab, das nicht zum Passwort gehört.
-    if (Platform.isMacOS && geheimnis.endsWith('\n')) {
-      geheimnis = geheimnis.substring(0, geheimnis.length - 1);
+    final String geheimnis;
+    if (Platform.isMacOS) {
+      final fehlerausgabe = ergebnis.stderr is String ? ergebnis.stderr as String : '';
+      geheimnis = passwortAusSecurity(fehlerausgabe) ?? '';
+    } else {
+      geheimnis = ergebnis.stdout is String ? ergebnis.stdout as String : '';
     }
     if (ergebnis.exitCode != 0 || geheimnis.isEmpty) {
       throw const KontextFehler(
@@ -102,9 +115,9 @@ class SystemSchluesselbund implements Schluesselbund {
       programm = _werkzeug ?? 'secret-tool';
       argumente = [
         'store',
-        '--label=$dienst',
+        '--label=$_dienst',
         'service',
-        dienst,
+        _dienst,
         'account',
         konto,
       ];
@@ -127,7 +140,7 @@ class SystemSchluesselbund implements Schluesselbund {
     prozess.stdout.drain<void>();
     prozess.stderr.drain<void>();
     final String eingabe = Platform.isMacOS
-        ? 'add-generic-password -U -s $dienst -a ${_zitiert(konto)} '
+        ? 'add-generic-password -U -s $_dienst -a ${_zitiert(konto)} '
               '-w ${_zitiert(geheimnis)}\n'
         : geheimnis;
     try {
@@ -158,6 +171,37 @@ class SystemSchluesselbund implements Schluesselbund {
   /// Ein Befehlsargument für `security -i`, in doppelte Anführungszeichen gesetzt.
   static String _zitiert(String wert) =>
       '"${wert.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"';
+}
+
+/// Das Passwort aus der Ausgabe von `security find-generic-password -g`
+/// (macOS); null, wenn keine lesbare Passwortzeile darin steht. Druckbare
+/// Passwörter stehen als `password: "…"` da (Anführungszeichen im Passwort
+/// bleiben unmaskiert, deshalb gilt alles zwischen dem ersten und dem letzten),
+/// andere als `password: 0x<Hex>  "…"` mit den Bytes in UTF-8.
+String? passwortAusSecurity(String ausgabe) {
+  const anfang = 'password: ';
+  for (final zeile in const LineSplitter().convert(ausgabe)) {
+    if (!zeile.startsWith(anfang)) continue;
+    final wert = zeile.substring(anfang.length);
+    final hex = RegExp(r'^0x((?:[0-9A-Fa-f]{2})+)(?:\s|$)').firstMatch(wert);
+    if (hex != null) {
+      final ziffern = hex.group(1)!;
+      final bytes = [
+        for (var i = 0; i < ziffern.length; i += 2)
+          int.parse(ziffern.substring(i, i + 2), radix: 16),
+      ];
+      try {
+        return utf8.decode(bytes);
+      } on FormatException {
+        return null;
+      }
+    }
+    if (wert.length >= 2 && wert.startsWith('"') && wert.endsWith('"')) {
+      return wert.substring(1, wert.length - 1);
+    }
+    return null;
+  }
+  return null;
 }
 
 class _Gescheitert implements Exception {
