@@ -10,7 +10,7 @@ Git: Entwickelt wird auf GitHub (`Moodle-in-Niedersachsene-V/moocp-contextmanage
 2. **Nichts doppelt.** CLAUDE.md darf auf die README verweisen, die README nie auf CLAUDE.md.
 3. **Kein Verlaufsprotokoll**, auch nicht in ADRs: Es steht da, was gilt und warum. Einzige Ausnahme ist CHANGELOG.md; dort ist jede Zeile eine Überschrift aus Sicht dessen, der die Änderung merkt.
 4. **Implementierungsdetails gehören als Kommentar an den Quelltext.**
-5. Deutsch mit echten Umlauten in Texten, Kommentaren und Meldungen. Bezeichner ohne Umlaute (`pruefeStand`). Kein künstliches Eindeutschen (Version, Release, Skill, Plugin).
+5. Deutsch mit echten Umlauten in Dokumentation, Kommentaren und Meldungen an die Lehrkraft. **Englisch** sind die Texte für die KI (Skills, Werkzeugbeschreibungen, Werkzeugantworten) und alle Dateinamen im Kontextbereich, auch wenn die Lehrkraft deutsch arbeitet. Bezeichner ohne Umlaute (`pruefeStand`). Kein künstliches Eindeutschen (Version, Release, Skill, Plugin).
 6. **Neue offene Punkte werden GitHub-Issues**, nach Rückfrage, nicht Absätze in README oder CLAUDE.md.
 7. **Entscheidungen stehen als ADR in `docs/adr/`**; die Index-Zeile in dieser Datei trägt ihre Regeln.
 
