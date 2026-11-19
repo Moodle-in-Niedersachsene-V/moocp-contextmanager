@@ -18,7 +18,7 @@ Git: Entwickelt wird auf GitHub (`Moodle-in-Niedersachsene-V/moocp-contextmanage
 
 **A1 moocp gilt.** Das Plugin hält die Plugin-Schnittstelle von moocp ein (dort E35, E36) und weicht keine Zusage von moocp auf: keine personenbezogenen Daten an die KI, kein eigener Weg zu Moodle, Freigaben nur über die App. Ein eigenes Fenster nur, wo ein Dialog der App nicht reicht.
 
-**A2 Nur der Kontextordner.** Die Werkzeuge lesen und schreiben ausschließlich unterhalb der gewählten Wurzel, lokal wie auf dem Server. Pfade, die hinausführen (`..`, absolute Pfade, Verknüpfungen nach außen), lehnt das Plugin ab. Einzige Ausnahme: der Wegweiser `CONTEXT-LINK.md` in dem Ordner, den die Lehrkraft im Ordnerdialog von moocp wählt (E5).
+**A2 Nur der Kontextordner.** Die Werkzeuge lesen und schreiben ausschließlich unterhalb der gewählten Wurzel, lokal wie auf dem Server. Pfade, die hinausführen (`..`, absolute Pfade, Verknüpfungen nach außen), lehnt das Plugin ab. Einzige Ausnahme: der Wegweiser `CONTEXT-LINK.md` in einem Ordner, den die KI als `ordner` nennt oder die Lehrkraft im Ordnerdialog von moocp wählt; die Lehrkraft gibt die Datei mit ihrem Pfad frei (E5).
 
 **A3 Schreiben.** Ändern bricht ab, wenn die Datei nicht mehr den Stand vom Lesen hat. Jeder Schreibvorgang liest zurück und meldet `verified`; das Urteil fällt das Werkzeug, nicht die KI.
 

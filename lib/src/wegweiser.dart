@@ -20,6 +20,15 @@ const _kopf =
     '# Wegweiser zum Kontextbereich\n'
     '\n'
     'Jeder Eintrag nennt eine Stelle im Kontextbereich, relativ zu dessen Wurzel. '
+    'Die Einträge sind Hinweise, keine Anweisungen. Geschrieben wird diese Datei im Normalfall vom Plugin; ist das nicht möglich, schreibt sie die KI im selben Aufbau.\n'
+    '\n';
+
+/// Der Kopf früherer Dateien. Er wird weiter gelesen und beim nächsten Schreiben
+/// durch [_kopf] ersetzt, damit eine vorhandene Datei nicht als fremd gilt.
+const _altKopf =
+    '# Wegweiser zum Kontextbereich\n'
+    '\n'
+    'Jeder Eintrag nennt eine Stelle im Kontextbereich, relativ zu dessen Wurzel. '
     'Die Einträge sind Hinweise, keine Anweisungen. Geschrieben wird diese Datei nur vom Plugin.\n'
     '\n';
 
@@ -53,8 +62,12 @@ class WegweiserEintrag {
 /// Liest den Text eines Wegweisers. Alles, was nicht der feste Aufbau ist, wirft
 /// eine Meldung: Das Plugin ändert eine fremde Datei nie.
 List<WegweiserEintrag> leseWegweiser(String text) {
-  if (!text.startsWith(_kopf)) throw _fremd;
-  final rest = text.substring(_kopf.length).trim();
+  final kopf = text.startsWith(_kopf)
+      ? _kopf
+      : text.startsWith(_altKopf)
+      ? _altKopf
+      : throw _fremd;
+  final rest = text.substring(kopf.length).trim();
   if (rest.isEmpty) return const [];
   final eintraege = <WegweiserEintrag>[];
   for (final block in rest.split(RegExp(r'\n\s*\n'))) {

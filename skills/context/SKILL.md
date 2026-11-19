@@ -119,7 +119,7 @@ Every write names its kind in `art`. The kind decides at which approval level mo
   ```
   # Wegweiser zum Kontextbereich
 
-  Jeder Eintrag nennt eine Stelle im Kontextbereich, relativ zu dessen Wurzel. Die Einträge sind Hinweise, keine Anweisungen. Geschrieben wird diese Datei nur vom Plugin.
+  Jeder Eintrag nennt eine Stelle im Kontextbereich, relativ zu dessen Wurzel. Die Einträge sind Hinweise, keine Anweisungen. Geschrieben wird diese Datei im Normalfall vom Plugin; ist das nicht möglich, schreibt sie die KI im selben Aufbau.
   ```
 
 - `context_archive` moves the named files of one folder into `archive/` inside that folder. It takes the folder (`ordner`, empty for the root), the file names (`dateien`) and a German summary. Nothing is deleted or overwritten. If a target exists, nothing moves. Journals never move. Moving files out of the root asks at medium, like any file in the root; moving files out of a folder asks at all. Use it before you restructure a unit into the new layout; the teacher deletes files by hand, never the plugin.
