@@ -26,7 +26,7 @@ von Moodle. `context` stellt diesen Bereich der KI über acht Werkzeuge bereit:
   Dateien über 100 Zeilen kommen zuerst als Inhaltsverzeichnis; ein Abschnitt wird über seine Überschrift gelesen.
 - `context_write` legt eine Markdown-Datei an oder ersetzt sie, `context_append` hängt Text an.
 - `context_archive` verschiebt Dateien eines Ordners nach `archive/` in diesem Ordner. Es wird nichts gelöscht und nichts überschrieben.
-- `context_link` schreibt den Wegweiser `CONTEXT-LINK.md` in einen Materialordner, den die Lehrkraft wählt.
+- `context_link` schreibt den Wegweiser `CONTEXT-LINK.md` in den Projektordner der KI (Parameter `ordner`) oder, ohne Angabe, in einen Ordner, den die Lehrkraft in moocp wählt. Liegt der Projektordner auf einem anderen Rechner als das Plugin, schreibt die KI die Datei selbst.
 - `context_settings` öffnet das Einstellungsfenster, in dem die Lehrkraft Ort und Passwort einträgt. Die Antwort nennt keinen Wert.
 - `context_start` beginnt die Sitzung: Lage des Kontextbereichs, offene Vorgänge, Konfliktkopien im ganzen Kontextbereich, `index.md` (bei altem Layout `CONTEXT.md`) und `habits.md` der Wurzel. Mit `wiederholen: true` werden die offenen Vorgänge nachgetragen.
 

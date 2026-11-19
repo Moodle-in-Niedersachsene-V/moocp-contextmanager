@@ -175,7 +175,8 @@ List<WegweiserEintrag> pruefeEintraege(List<WegweiserEintrag> eintraege) {
 }
 
 /// Verknüpft den Kontextbereich mit einem Ordner der Lehrkraft: Die Einträge
-/// müssen auf vorhandene Stellen zeigen, der Ordner kommt aus dem Ordnerdialog,
+/// müssen auf vorhandene Stellen zeigen, der Ordner kommt von der KI ([ordnerDerKi],
+/// ohne Dialog) oder, wenn sie keinen nennt, aus dem Ordnerdialog,
 /// die Freigabe gilt auf jeder Stufe (E5). Geschrieben wird nur die Datei
 /// [wegweiserDatei] in diesem Ordner, und nur, wenn sie nach Freigabe noch den
 /// gelesenen Stand hat. Ein Ausfall des Kontextbereichs kommt nicht in den
@@ -185,6 +186,7 @@ Future<String> verknuepfeWegweiser({
   required AppAnschluss app,
   required String? aufruf,
   required List<WegweiserEintrag> eintraege,
+  String? ordnerDerKi,
 }) async {
   final pruefte = pruefeEintraege(eintraege);
 
@@ -199,19 +201,42 @@ Future<String> verknuepfeWegweiser({
   }
   await _pruefeZiele(speicher, pruefte);
 
-  final ordner = await app.ordnerWaehlen(
-    aufruf: aufruf,
-    titel: 'Ordner für den Wegweiser wählen',
-  );
-  if (ordner == null) {
-    throw const KontextFehler('Not written: no folder was chosen.');
-  }
-  // Der Ordner kommt aus dem Dialog der App; geprüft wird trotzdem, dass er ein
-  // absoluter, vorhandener Ordner ist, bevor etwas hineingeschrieben wird.
-  if (!p.isAbsolute(ordner)) {
-    throw const KontextFehler(
-      'moocp gave a folder that is not an absolute path; nothing was written.',
+  final String ordner;
+  if (ordnerDerKi != null) {
+    // Die KI nennt den Ordner, das Plugin prüft ihn streng und schreibt in den
+    // aufgelösten Pfad (ohne Verknüpfungen); die Freigabe auf jeder Stufe zeigt
+    // der Lehrkraft genau diese Datei (E5).
+    if (!p.isAbsolute(ordnerDerKi) || p.split(ordnerDerKi).contains('..')) {
+      throw const KontextFehler(
+        "The 'ordner' must be an absolute path without '..'; nothing was written.",
+      );
+    }
+    try {
+      ordner = await Directory(ordnerDerKi).resolveSymbolicLinks();
+    } on FileSystemException {
+      throw const KontextFehler(
+        'The folder does not exist on the machine where the plugin runs; '
+        'nothing was written. If you work on another machine than the plugin, '
+        'write CONTEXT-LINK.md yourself as the skill describes, or omit "ordner" '
+        'so the teacher picks the folder in moocp.',
+      );
+    }
+  } else {
+    final gewaehlt = await app.ordnerWaehlen(
+      aufruf: aufruf,
+      titel: 'Ordner für den Wegweiser wählen',
     );
+    if (gewaehlt == null) {
+      throw const KontextFehler('Not written: no folder was chosen.');
+    }
+    ordner = gewaehlt;
+    // Der Ordner kommt aus dem Dialog der App; geprüft wird trotzdem, dass er ein
+    // absoluter Pfad ist.
+    if (!p.isAbsolute(ordner)) {
+      throw const KontextFehler(
+        'moocp gave a folder that is not an absolute path; nothing was written.',
+      );
+    }
   }
   if (await FileSystemEntity.type(ordner) != FileSystemEntityType.directory) {
     throw const KontextFehler(
