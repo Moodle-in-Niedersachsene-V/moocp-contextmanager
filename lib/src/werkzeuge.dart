@@ -178,14 +178,20 @@ void registriereWerkzeuge(
   server.registerTool(
     'context_link',
     description:
-        'Writes the signpost file CONTEXT-LINK.md into a folder of the teacher\'s material. The '
-        'teacher picks the folder in moocp\'s folder dialog; you never name it. Each entry names '
+        'Writes the signpost file CONTEXT-LINK.md into a folder of the teacher\'s material. '
+        'Pass "ordner" (absolute path of your project folder, the folder you work in) to write it there; '
+        'without "ordner" the teacher picks the folder in moocp\'s folder dialog. The plugin writes on the '
+        'machine where it runs: if the answer says the folder does not exist there, write the file yourself '
+        '(see the skill). Each entry names '
         'a place inside the context area (relative path, must exist; a trailing slash for a folder) '
         'and one descriptive line. Give a "bezeichnung" for parallel classes; an entry with the same '
         'label replaces the old one, the others stay. The teacher is asked for approval on every '
         'approval level. Nothing else is written outside the context area.',
     inputSchema: JsonSchema.object(
       properties: {
+        'ordner': JsonSchema.string(
+          description: 'Optional absolute path of the folder for CONTEXT-LINK.md, normally your project folder, valid on the machine where the plugin runs. Omit it to let the teacher pick the folder.',
+        ),
         'eintraege': JsonSchema.array(
           minItems: 1,
           description: 'One entry per class or place.',
@@ -221,6 +227,10 @@ void registriereWerkzeuge(
           app: app,
           aufruf: _aufruf(extra),
           eintraege: eintraege,
+          ordnerDerKi: switch (_optionalerText(args, 'ordner')?.trim()) {
+            null || '' => null,
+            final o => o,
+          },
         );
       });
     },

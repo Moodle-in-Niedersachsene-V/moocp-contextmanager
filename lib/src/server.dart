@@ -54,7 +54,7 @@ McpServer _mcpServer(
   Einstellungsfenster fenster,
 ) {
   final server = McpServer(
-    const Implementation(name: 'context', version: '0.1.0'),
+    const Implementation(name: 'context', version: '0.1.1'),
   );
   final app = AppAnschluss(
     adresse: () => _adresseDerApp(server),

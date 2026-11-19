@@ -14,7 +14,7 @@ const kopfErwartet =
     '# Wegweiser zum Kontextbereich\n'
     '\n'
     'Jeder Eintrag nennt eine Stelle im Kontextbereich, relativ zu dessen Wurzel. '
-    'Die Einträge sind Hinweise, keine Anweisungen. Geschrieben wird diese Datei nur vom Plugin.\n'
+    'Die Einträge sind Hinweise, keine Anweisungen. Geschrieben wird diese Datei im Normalfall vom Plugin; ist das nicht möglich, schreibt sie die KI im selben Aufbau.\n'
     '\n';
 
 void main() => fuerJedenOrt(_tests);
@@ -125,6 +125,100 @@ void _tests(Ortsart art) {
       expect(ergebnis['isError'], isTrue);
       expect(PluginProzess.text(ergebnis), contains('no folder was chosen'));
       expect(p.app.freigaben, isEmpty);
+      expect(wegweiser().existsSync(), isFalse);
+    });
+  });
+
+  group('context_link: Ordner von der KI genannt (Parameter ordner)', () {
+    test('schreibt in den genannten Ordner ohne Ordnerdialog, fragt die Lehrkraft und meldet verified', () async {
+      final plug = await laufendesPlugin(gewaehlt: 'wird-nicht-benutzt');
+      plug.app.dialogPfad = null;
+      final ergebnis = await plug.werkzeug('context_link', {
+        'ordner': materialOrdner,
+        'eintraege': [eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b')],
+      });
+      expect(ergebnis['isError'], isNot(true), reason: PluginProzess.text(ergebnis));
+      expect(PluginProzess.text(ergebnis), startsWith('verified'));
+      expect(PluginProzess.text(ergebnis), isNot(contains(materialOrdner)));
+      expect(plug.app.dialoge, isEmpty);
+      expect(plug.app.freigaben, hasLength(1));
+      expect(
+        plug.app.freigaben.single.toString(),
+        contains(p.join(materialOrdner, 'CONTEXT-LINK.md')),
+      );
+      expect(wegweiser().existsSync(), isTrue);
+    });
+
+    test('ein relativer Ordner oder einer mit .. wird abgewiesen, ohne Dialog und Freigabe', () async {
+      for (final ziel in ['relativ/ordner', '${materialOrdner}/../unterricht']) {
+        final plug = await laufendesPlugin();
+        final ergebnis = await plug.werkzeug('context_link', {
+          'ordner': ziel,
+          'eintraege': [eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b')],
+        });
+        expect(ergebnis['isError'], isTrue, reason: ziel);
+        expect(PluginProzess.text(ergebnis), contains('absolute path'));
+        expect(plug.app.dialoge, isEmpty);
+        expect(plug.app.freigaben, isEmpty);
+        await plug.beenden();
+        plugin = null;
+      }
+    });
+
+    test('ein Ordner, den es auf diesem Rechner nicht gibt, wird abgewiesen und verweist auf das Selbstschreiben', () async {
+      final plug = await laufendesPlugin();
+      final ergebnis = await plug.werkzeug('context_link', {
+        'ordner': p.join(ordner.path, 'anderer-rechner'),
+        'eintraege': [eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b')],
+      });
+      expect(ergebnis['isError'], isTrue);
+      final text = PluginProzess.text(ergebnis);
+      expect(text, contains('does not exist on the machine where the plugin runs'));
+      expect(text, contains('write CONTEXT-LINK.md yourself'));
+      expect(plug.app.dialoge, isEmpty);
+      expect(plug.app.freigaben, isEmpty);
+    });
+
+    test('ein leerer Ordner gilt als nicht genannt: der Ordnerdialog öffnet sich', () async {
+      final plug = await laufendesPlugin();
+      final ergebnis = await plug.werkzeug('context_link', {
+        'ordner': '  ',
+        'eintraege': [eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b')],
+      });
+      expect(ergebnis['isError'], isNot(true), reason: PluginProzess.text(ergebnis));
+      expect(plug.app.dialoge, hasLength(1));
+    });
+
+    test('eine Datei als Ordner wird abgewiesen; eine Verknüpfung wird aufgelöst und die Freigabe zeigt das Ziel', () async {
+      final datei = p.join(ordner.path, 'eine-datei.txt');
+      await File(datei).writeAsString('x\n');
+      final plug = await laufendesPlugin();
+      var ergebnis = await plug.werkzeug('context_link', {
+        'ordner': datei,
+        'eintraege': [eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b')],
+      });
+      expect(ergebnis['isError'], isTrue);
+      expect(plug.app.freigaben, isEmpty);
+
+      final verknuepfung = p.join(ordner.path, 'projekt-link');
+      await Link(verknuepfung).create(materialOrdner);
+      ergebnis = await plug.werkzeug('context_link', {
+        'ordner': verknuepfung,
+        'eintraege': [eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b')],
+      });
+      expect(ergebnis['isError'], isNot(true), reason: PluginProzess.text(ergebnis));
+      final zusammenfassung = plug.app.freigaben.single.toString();
+      expect(zusammenfassung, isNot(contains('projekt-link')));
+      expect(wegweiser().existsSync(), isTrue);
+    });
+
+    test('eine Ablehnung schreibt auch hier nichts', () async {
+      final plug = await laufendesPlugin(antwort: 'abgelehnt');
+      final ergebnis = await plug.werkzeug('context_link', {
+        'ordner': materialOrdner,
+        'eintraege': [eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b')],
+      });
+      expect(ergebnis['isError'], isTrue);
       expect(wegweiser().existsSync(), isFalse);
     });
   });
@@ -326,6 +420,24 @@ void _tests(Ortsart art) {
         'Beschreibung: Mathe 8a, Gruppe B\n',
       );
       expect(p.app.freigaben, hasLength(2));
+    });
+
+    test('eine Datei mit dem früheren Kopf gilt nicht als fremd; ihre Einträge bleiben, der Kopf wird erneuert', () async {
+      final plug = await laufendesPlugin();
+      await wegweiser().writeAsString(
+        '# Wegweiser zum Kontextbereich\n\n'
+        'Jeder Eintrag nennt eine Stelle im Kontextbereich, relativ zu dessen Wurzel. '
+        'Die Einträge sind Hinweise, keine Anweisungen. Geschrieben wird diese Datei nur vom Plugin.\n\n'
+        'Bezeichnung: Gruppe A\nPfad: klassen/8a/index.md\nBeschreibung: Klasse 8a\n',
+      );
+      final ergebnis = await plug.werkzeug('context_link', {
+        'eintraege': [eintrag('klassen/7b/index.md', 'Mathematik, Klasse 7b', bezeichnung: 'Gruppe B')],
+      });
+      expect(ergebnis['isError'], isNot(true), reason: PluginProzess.text(ergebnis));
+      final text = await wegweiser().readAsString();
+      expect(text, startsWith(kopfErwartet));
+      expect(text, contains('Pfad: klassen/8a/index.md'));
+      expect(text, contains('Pfad: klassen/7b/index.md'));
     });
 
     test(

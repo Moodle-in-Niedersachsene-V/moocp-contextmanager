@@ -3,7 +3,7 @@
 # unter den indirekten, wie im Beispiel-Plugin von moocp.
 name: contextmanager
 description: Plugin für moocp, das der KI den Kontextbereich der Lehrkraft gibt.
-version: 0.1.0
+version: 0.1.1
 publish_to: none
 
 environment:

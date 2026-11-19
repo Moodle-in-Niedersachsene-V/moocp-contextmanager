@@ -4,7 +4,7 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). 
 
 ## Entscheidung
 
-**Einzige Schreibstelle außerhalb der Wurzel.** `context_link` schreibt die Datei `CONTEXT-LINK.md` in einen Ordner der Lehrkraft, und nur diese Datei. Das ist die einzige Ausnahme von A2. Der Ordner kommt allein aus dem Ordnerdialog der App (`/v1/dialog/pfad`, E35); die KI nennt keinen Ordner, und die Antwort nennt ihn nie.
+**Einzige Schreibstelle außerhalb der Wurzel.** `context_link` schreibt die Datei `CONTEXT-LINK.md` in einen Ordner der Lehrkraft, und nur diese Datei. Das ist die einzige Ausnahme von A2. Der Ordner ist der Projektordner der KI, den sie als `ordner` (absolut, ohne `..`, vorhanden auf dem Rechner des Plugins) nennt; nennt sie keinen, kommt er aus dem Ordnerdialog der App (`/v1/dialog/pfad`, E35). Die Freigabe zeigt die Datei mit vollem Pfad, die Antwort nennt den Ordner nie. Läuft das Plugin auf einem anderen Rechner als die KI, gibt es den Ordner dort nicht; das Plugin sagt das, und die KI schreibt die Datei nach dem Skill selbst.
 
 **Freigabe auf jeder Stufe.** Der Wegweiser wird mit `ab: keine` angefragt (E20). Die Stufe der Lehrkraft senkt das nicht. Die Freigabe nennt Datei, Einträge und, dass vorhandene Einträge mit gleicher Bezeichnung ersetzt werden.
 
@@ -22,7 +22,7 @@ Status: gilt. Die Regeln dazu stehen im Index der [CLAUDE.md](../../CLAUDE.md). 
 
 ## Verworfen
 
-- Den Ordner von der KI nennen lassen: Der Ordner ist eine Entscheidung der Lehrkraft, und der Dialog ist der einzige Weg dazu (A1, E35).
+- Den Ordner nur über den Dialog wählen lassen: Die KI arbeitet im Projektordner, in dem der Wegweiser liegen soll; der Dialog erschien auf dem Rechner mit moocp, nicht dort, wo die KI arbeitet. Die Freigabe auf jeder Stufe fängt einen falsch genannten Ordner ab.
 - Die Wurzel im Wegweiser nennen: Die Datei liegt im Materialordner und wandert mit ihm; der Ort der Wurzel gehört auf jeden Rechner anders (A7).
 - Den Wegweiser über `context_write` mit einer Art `signpost` schreiben: Dann schriebe `context_write` außerhalb der Wurzel, und die Ausnahme wäre nicht mehr eng.
 - Den Wegweiser in den Ausstand legen, wenn der Kontextbereich nicht antwortet: Er ist keine Änderung des Kontextbereichs, und seine Ziele lassen sich ohne ihn nicht prüfen.
