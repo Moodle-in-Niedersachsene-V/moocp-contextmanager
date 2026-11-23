@@ -1,0 +1,5 @@
+# Im Workflow (`dart test -P ci`) wird ein zeitempfindlicher Test, der das Plugin
+# neu startet, bis zu zweimal wiederholt; lokal läuft jeder Test einmal.
+presets:
+  ci:
+    retry: 2

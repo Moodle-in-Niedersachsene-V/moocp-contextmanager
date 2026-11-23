@@ -165,7 +165,7 @@ jobs:
         # Fenster noch nicht gestartet); ein Wiederholungsversuch fängt das ab,
         # ein echter Fehler scheitert dreimal.
         run: |
-          dart test --retry 2
+          dart test -P ci
           (cd fenster && flutter test)
 
       # Das Testgerüst des Plugins benutzt sh-Skripte als Ersatz für Systemwerkzeuge
