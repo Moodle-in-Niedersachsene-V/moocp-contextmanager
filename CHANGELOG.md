@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Neu: Das Plugin läuft unter Windows (x64), mit Einstellungsfenster. Ein Installer `context_setup_<Version>.exe` legt es ohne Administratorrechte in moocp ab; das Passwort eines WebDAV-Servers liegt in der Anmeldeinformationsverwaltung von Windows.
+- Neu: Für Linux (x64) gibt es ein Installationsarchiv `context_linux_x64_<Version>.tar.gz` mit einem Skript, das das Plugin ohne Administratorrechte in moocp ablegt, ersetzt und wieder entfernt, ohne Einstellungen und Passwort anzufassen.
+- Neu: Zu jedem Release gehören die Installer für Windows, macOS und Linux mit Prüfsummen, gebaut und geprüft auf dem jeweiligen System.
 - Neu: Das Plugin läuft auf dem Mac (Apple Silicon), mit Einstellungsfenster. Ein Installer `context_setup_<Version>.pkg` legt es ohne Administratorrechte in moocp ab und ersetzt eine ältere Version ganz.
 - Behoben: Auf dem Mac wurde ein Passwort mit Umlauten aus dem Schlüsselbund falsch gelesen, und die Anmeldung am WebDAV-Server scheiterte.
 - Neu: Die KI listet den Kontextbereich und liest Textdateien mit ihrer Version. Pfade, die aus dem Ordner hinausführen, werden abgewiesen.

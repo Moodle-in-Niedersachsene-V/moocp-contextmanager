@@ -67,11 +67,20 @@ Future<void> schreibeEinstellungen(File datei, Einstellungen einstellungen) asyn
 }
 
 /// Der Ort der Einstellungsdatei im Datenordner des Plugins (außerhalb des
-/// Plugin-Ordners, damit eine Aktualisierung sie nicht überschreibt).
-String standardEinstellungenPfad({Map<String, String>? umgebung}) {
+/// Plugin-Ordners, damit eine Aktualisierung sie nicht überschreibt). Unter
+/// Windows liegt er in `%APPDATA%`, wie der Einstellungsordner von moocp.
+String standardEinstellungenPfad({Map<String, String>? umgebung, bool? windows}) {
   final env = umgebung ?? Platform.environment;
   final home = env['HOME'] ?? '';
   final String basis;
+  if (windows ?? Platform.isWindows) {
+    final appdata = env['APPDATA'];
+    final profil = env['USERPROFILE'] ?? '';
+    basis = (appdata != null && appdata.isNotEmpty)
+        ? appdata
+        : p.windows.join(profil, 'AppData', 'Roaming');
+    return p.windows.join(basis, 'moocp-contextmanager', 'einstellungen.json');
+  }
   if (Platform.isMacOS) {
     basis = p.join(home, 'Library', 'Application Support');
   } else {

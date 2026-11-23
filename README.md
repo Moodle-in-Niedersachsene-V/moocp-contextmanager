@@ -11,7 +11,12 @@ WebDAV-Server.
 bash bauen.sh                       # baut das Plugin nach build/context (braucht dart und flutter)
 bash entwickeln.sh /pfad/zu/moocp   # startet es zum Entwickeln an moocp
 bash installer_mac.sh               # Mac: baut den Installer installer/context_setup_<Version>.pkg
+bash installer_linux.sh             # Linux: baut installer/context_linux_x64_<Version>.tar.gz
+create_installer.bat                # Windows: baut installer\context_setup_<Version>.exe
 ```
+
+Fertige Installer stehen unter „Releases“ dieses Repositorys; sie brauchen weder
+Dart noch Flutter (siehe „Installation“).
 
 Beim ersten Start öffnet sich das Einstellungsfenster. Dort richtet die
 Lehrkraft den Kontextbereich ein (siehe Benutzerhandbuch).
@@ -43,23 +48,74 @@ Schreiben in Moodle im Kontextbereich steht und geprüft ist.
 
 ### Installation
 
-Das fertige Plugin ist der Ordner aus `bauen.sh`. Er gehört in den
-Einstellungsordner von moocp unter `plugins/context`. moocp vorher beenden:
-Beim nächsten Start fragt moocp nach der Zustimmung zu dieser Version. Der
-Ordner enthält das Einstellungsfenster in `einstellungsfenster/`; das Plugin
-startet es von dort.
+Zu jedem Release gehören drei fertige Installer, zu finden unter „Releases“
+dieses Repositorys. Sie brauchen weder Dart noch Flutter und keine
+Administratorrechte. Voraussetzung ist ein moocp, das schon einmal gestartet
+wurde. Das Plugin gibt es für diese Systeme und Prozessoren:
 
-Der Skill `context` liegt im Ordner `skills/` des Plugins. moocp richtet ihn
-bei den KI-Werkzeugen ein (Claude Code, Codex CLI, LM Studio), sobald die
-Lehrkraft das Plugin zugestimmt hat. Der Skill sagt der KI, wann sie den
+| System | Datei | Prozessor |
+| --- | --- | --- |
+| Windows 10/11 | `context_setup_<Version>.exe` | x64 |
+| macOS | `context_setup_<Version>.pkg` | Apple Silicon (arm64) |
+| Linux (Debian 13 und ähnliche) | `context_linux_x64_<Version>.tar.gz` | x64 |
+
+Zu jeder Datei gibt es eine `.sha256` mit ihrer Prüfsumme. Ein Installer ersetzt
+eine ältere Version ganz; Einstellungen und das Passwort im Schlüsselbund bleiben.
+moocp fragt beim nächsten Start nach der Zustimmung zur neuen Version. Skills
+richtet moocp selbst bei den KI-Werkzeugen ein (Claude Code, Codex CLI, LM
+Studio), sobald die Lehrkraft dem Plugin zugestimmt hat; der Skill `context`
+liegt im Ordner `skills/` des Plugins. Er sagt der KI, wann sie den
 Kontextbereich liest und schreibt: zu Sitzungsbeginn, vor jedem Schreiben in
 Moodle, bei Freigaben und beim Wegweiser. Die Lehrkraft muss nichts davon
 einstellen; der Aufschreibmodus („fragen“, „immer“, „warten“) steht als
 Gewohnheit im Kontextbereich.
 
+Selbst gebaut ist das fertige Plugin der Ordner aus `bauen.sh`; er gehört in den
+Einstellungsordner von moocp unter `plugins/context` (moocp vorher beenden). Das
+Einstellungsfenster liegt darin in `einstellungsfenster/`.
+
+Die Installer sind nicht signiert, weil das Projekt kein Entwicklerzertifikat
+von Microsoft oder Apple hat. Windows und macOS warnen deshalb beim ersten
+Öffnen; die Schritte dafür stehen unter „Installation unter Windows“ und
+„Installation auf dem Mac“.
+
+### Installation unter Windows
+
+`context_setup_<Version>.exe` doppelklicken. Windows warnt beim ersten Mal
+(„Der Computer wurde durch Windows geschützt“): „Weitere Informationen“, dann
+„Trotzdem ausführen“. Der Installer legt das Plugin in
+`%APPDATA%\moocp\plugins\context` und bricht mit einem Hinweis ab, wenn moocp
+fehlt oder das Plugin noch läuft; dann moocp schließen und noch einmal starten.
+Er beendet nie ein Programm. Entfernen: unter „Installierte Apps“ den Eintrag
+„moocp-Plugin Kontextbereich“ deinstallieren. Die Einstellungen liegen in
+`%APPDATA%\moocp-contextmanager`, das Passwort in der Anmeldeinformationsverwaltung
+von Windows (Eintrag `moocp-contextmanager:<Benutzer>@<Adresse>`); wer alles
+entfernen will, löscht auch diese.
+
+### Installation unter Linux
+
+Das Archiv entpacken und das Skript darin starten, als normaler Benutzer:
+
+```
+tar -xzf context_linux_x64_<Version>.tar.gz
+bash context_linux_x64_<Version>/installieren.sh
+```
+
+Das Skript legt das Plugin in `~/.config/moocp/plugins/context` (bzw.
+`$XDG_CONFIG_HOME/moocp/plugins/context`), lehnt root ab, bricht mit einem
+Hinweis ab, wenn moocp fehlt oder das Plugin noch läuft (dann moocp schließen),
+und beendet nie einen Prozess. Mit `--entfernen` entfernt es das Plugin wieder.
+Einstellungen und Passwort bleiben.
+
+Laufzeitabhängigkeiten (Debian 13): `libgtk-3-0t64` und `libsecret-1-0` für das
+Einstellungsfenster, `libsecret-tools` (liefert `secret-tool`) und ein
+Schlüsselbund wie GNOME Keyring oder KeePassXC für das Passwort eines
+WebDAV-Servers. Ein lokaler Ordner braucht den Schlüsselbund nicht. Eine
+grafische Sitzung (X11 oder Wayland) braucht das Fenster.
+
 ### Installation auf dem Mac
 
-Auf dem Mac gibt es einen Installer, `context_setup_<Version>.pkg`. Er braucht
+Auf dem Mac gibt es den Installer `context_setup_<Version>.pkg`. Er braucht
 einen Mac mit Apple Silicon (M1 oder neuer) und ein moocp, das schon einmal
 gestartet wurde; sonst bricht er mit einem Hinweis ab. Er installiert nur für den
 angemeldeten Benutzer und fragt nicht nach einem Administratorpasswort. moocp
@@ -256,7 +312,7 @@ den Vorgang nicht an den neuen Ort, sondern meldet ihn und lässt ihn stehen.
 
 ### Aufbau
 
-Die Zahlen E1 bis E8 verweisen auf die [Entscheidungen in `docs/adr/`](docs/adr/).
+Die Zahlen E1 bis E12 verweisen auf die [Entscheidungen in `docs/adr/`](docs/adr/).
 E20 und E35 sind Entscheidungen von moocp.
 
 - `bin/context.dart`: Start nach den Regeln von moocp (Port auf der
@@ -278,7 +334,7 @@ E20 und E35 sind Entscheidungen von moocp.
   ohne starkes ETag die Prüfsumme als Version ([E9](docs/adr/0009-version-ohne-etag.md)), Zeitlimit und Ausfall.
 - `lib/src/pfad.dart`: die Pfadregeln für beide Orte.
 - `lib/src/ort.dart`: der Zugang zum Ort aus den Einstellungen (jedes Mal neu gelesen).
-- `lib/src/schluesselbund.dart`: das Passwort aus dem Schlüsselbund über die Werkzeuge des Systems ([E4](docs/adr/0004-schluesselbund-und-verbindung.md)).
+- `lib/src/schluesselbund.dart`: das Passwort aus dem Schlüsselbund über die Werkzeuge des Systems ([E4](docs/adr/0004-schluesselbund-und-verbindung.md)); unter Windows `lib/src/windows_anmeldeinfo.dart` über die Anmeldeinformationsverwaltung ([E12](docs/adr/0012-installer-und-release-bau.md)).
 - `lib/src/art.dart`: Arten der Änderung und ihre Freigabestufe (E20 von moocp).
 - `lib/src/app.dart`: Freigaben über die Adresse der App für Plugins (E35 von moocp).
 - `lib/src/einstellungen.dart`: Einstellungsdatei für beide Orte und Prüfung der Adresse.
@@ -287,8 +343,10 @@ E20 und E35 sind Entscheidungen von moocp.
 - `lib/src/einrichtung.dart`: die Einrichtung aus dem Fenster: Eingabe prüfen, Verbindung prüfen, speichern (Schlüsselbund vor Datei) und die deutschen Meldungen ([E8](docs/adr/0008-einstellungsfenster.md)).
 - `lib/src/fensterarchiv.dart`: das Fenster auf dem Mac: Auspacken von `einstellungsfenster.zip` aus dem Plugin-Ordner in den Datenordner vor jedem Start ([E11](docs/adr/0011-einstellungsfenster-auf-dem-mac.md)).
 - `lib/src/einstellungsfenster.dart`: Start des Fensters: beim ersten Start ohne Einstellungen, einmal je Ausfall, auf Wunsch der KI (`context_settings`); Ende des Fensters mit dem Plugin und Aufräumen eines Rests über `fenster.pid` ([E8](docs/adr/0008-einstellungsfenster.md)).
-- `fenster/`: das Einstellungsfenster als eigenes Flutter-Programm (Material 3, moocps Grundfarbe, `window_manager`) für Linux und macOS (ohne Sandbox). Es benutzt das Plugin über den Pfad `..`; `bauen.sh` legt es unter Linux als `einstellungsfenster/`, auf dem Mac als `einstellungsfenster.zip` in den Plugin-Ordner.
-- `installer_mac.sh` und `installer/macos/`: der Installer für den Mac (siehe „Installer für den Mac“).
+- `fenster/`: das Einstellungsfenster als eigenes Flutter-Programm (Material 3, moocps Grundfarbe, `window_manager`) für Linux, macOS (ohne Sandbox) und Windows. Es benutzt das Plugin über den Pfad `..`; `bauen.sh` legt es unter Linux als `einstellungsfenster/`, auf dem Mac als `einstellungsfenster.zip` in den Plugin-Ordner, `bauen.ps1` unter Windows als `einstellungsfenster\`.
+- `installer_mac.sh` und `installer/macos/`: der Installer für den Mac (siehe „Installer für den Mac“). `installer_linux.sh` und `installer/linux/installieren.sh`: das Installationsarchiv für Linux. `create_installer.bat`, `bauen.ps1` und `installer/windows/plugin.nsi`: der Installer für Windows ([E12](docs/adr/0012-installer-und-release-bau.md)).
+- `tool/smoke.sh` und `tool/smoke.dart`: installieren wie die Lehrkraft und den installierten Ordner prüfen (Inhalt, Skill, Start, Lesen, Fenster); der Workflow ruft sie auf jedem System.
+- `.github/workflows/release.yml`: Bau, Prüfung und Veröffentlichung (siehe „Release und Workflow“).
 - `plugin.json`: Beschreibungsdatei für moocp.
 
 ### Tests
@@ -304,7 +362,12 @@ des Tests; das Passwort kommt von einem Ersatz für `secret-tool` (Linux) bzw.
 echte Schlüsselbund wird nie benutzt, außer mit `KONTEXT_SCHLUESSELBUND_ECHT=1` auf
 dem Mac: Dann speichert und liest `test/schluesselbund_test.dart` ein Passwort mit
 Umlauten unter einem eigenen Dienstnamen und löscht es wieder. Das Auspacken des
-Fensters prüft `test/fensterarchiv_test.dart` nur auf dem Mac.
+Fensters prüft `test/fensterarchiv_test.dart` nur auf dem Mac. Mit
+`KONTEXT_SCHLUESSELBUND=1` prüft `test/schluesselbund_system_test.dart` den
+echten Schlüsselbund des Systems (macOS, Windows, Linux mit Sitzung) mit einem
+eigenen Dienstnamen und räumt auf; das Testgerüst selbst benutzt sh-Skripte und
+läuft nicht unter Windows (dort laufen `test/einstellungen_pfad_test.dart`, der
+Schlüsselbund-Test und die Tests des Fensters).
 Der Skill und seine Ablage prüft `test/skill_test.dart`: jeder Werkzeugname und jede Art im Skill muss zum Plugin passen, und `bauen.sh` muss den Skill in den Zielordner kopieren (mit einem Ersatz für `dart`, der nur die Ausgabedatei anlegt).
 Die Vertragstests der Speicherschicht (gleiche Fälle für beide Orte) stehen in
 `test/speicher_vertrag_test.dart`, die WebDAV-Fälle (Ausfall, Zeitlimit, Anmeldung,
@@ -355,3 +418,38 @@ ob moocp eingerichtet ist, und leert in `installer/macos/scripts/preinstall` den
 alten Plugin-Ordner. Es braucht einen Mac mit Apple Silicon, denn `dart compile exe`
 übersetzt nur für den eigenen Prozessor. Ausprobieren ohne Doppelklick:
 `installer -pkg installer/context_setup_<Version>.pkg -target CurrentUserHomeDirectory`.
+
+### Windows und Linux bauen
+
+Windows: Flutter und Visual Studio mit „Desktopentwicklung mit C++“.
+`powershell -ExecutionPolicy Bypass -File bauen.ps1` baut den Plugin-Ordner nach
+`build\context`; `create_installer.bat` baut daraus mit NSIS 3 (`makensis`)
+`installer\context_setup_<Version>.exe`. Linux: Flutter und die Pakete für den
+Flutter-Bau (`clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev
+libjsoncpp-dev`); `bash installer_linux.sh` baut
+`installer/context_linux_x64_<Version>.tar.gz` (nur auf x86_64).
+
+### Release und Workflow
+
+`.github/workflows/release.yml` baut auf den Runnern der Systeme selbst (Linux
+x64, Windows x64, macOS arm64), mit Flutter 3.50.0 und den Sperrdateien
+(`--enforce-lockfile`). Jeder Lauf prüft Analyse und Tests, baut den Installer,
+installiert ihn wie die Lehrkraft (`tool/smoke.sh`) und prüft den installierten
+Ordner (`tool/smoke.dart`); unter Linux läuft das Archiv zusätzlich auf einem
+sauberen Debian 13.
+
+- **Release:** Wer ein Release veröffentlicht, startet den Bau für den getaggten
+  Commit. Der Tag muss `v<Version>` heißen und zu `version` in `plugin.json` und in
+  beiden `pubspec.yaml` passen, sonst bricht der Lauf ab. Haben alle drei Systeme
+  bestanden, hängt der Lauf die drei Installer und ihre `.sha256` an dieses Release;
+  fehlt eines, passiert nichts. Neue Version: `version` in `plugin.json`,
+  `pubspec.yaml` und `fenster/pubspec.yaml` zugleich erhöhen, mergen, Release mit
+  Tag `v<Version>` veröffentlichen. Schlägt ein Lauf fehl, lassen sich einzelne
+  Jobs erneut starten; sie bauen dieselbe Revision. Zeigt der Tag inzwischen
+  woandershin, bricht die Veröffentlichung ab.
+- **Manuell:** Unter „Actions“ den Workflow „Installer bauen und
+  veröffentlichen“ mit einer Revision starten; die Installer liegen als Artefakte
+  im Lauf, 14 Tage lang, und nichts wird veröffentlicht.
+- **Pull Request:** Er baut und prüft, ohne etwas zu veröffentlichen. Nur der Job
+  „publish“ hat Schreibrechte, und er läuft nur bei einem Release in diesem
+  Repository.

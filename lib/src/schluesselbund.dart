@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'fehler.dart';
+import 'windows_anmeldeinfo.dart';
 
 /// Das Passwort eines entfernten Speichers aus dem Schlüsselbund des Systems
 /// (ADR 0004). Der MCP-Server liest nur; geschrieben wird es vom Einstellungsfenster.
@@ -17,7 +18,9 @@ abstract class Schluesselbund {
 }
 
 /// Der Schlüsselbund des Betriebssystems über dessen Werkzeuge: `secret-tool`
-/// (Linux, libsecret) und `security` (macOS). Beim Lesen kommt das Passwort auf
+/// (Linux, libsecret) und `security` (macOS); unter Windows die
+/// Anmeldeinformationsverwaltung über die Systemschnittstelle (kein Werkzeug,
+/// kein Prozess). Beim Lesen kommt das Passwort auf
 /// der Standardausgabe des Werkzeugs, beim Speichern geht es über dessen
 /// Standardeingabe. Es steht nie in einer Kommandozeile und nie in einer Meldung.
 class SystemSchluesselbund implements Schluesselbund {
@@ -46,6 +49,9 @@ class SystemSchluesselbund implements Schluesselbund {
 
   @override
   Future<String> geheimnis(String konto) async {
+    if (Platform.isWindows && _werkzeug == null) {
+      return windowsGeheimnis(_dienst, konto);
+    }
     final ProcessResult ergebnis;
     final String programm;
     final List<String> argumente;
@@ -103,6 +109,9 @@ class SystemSchluesselbund implements Schluesselbund {
       throw const KontextFehler(
         'The password or account contains control characters (such as a line break); nothing was stored.',
       );
+    }
+    if (Platform.isWindows && _werkzeug == null) {
+      return windowsSpeichere(_dienst, konto, geheimnis);
     }
     final String programm;
     final List<String> argumente;

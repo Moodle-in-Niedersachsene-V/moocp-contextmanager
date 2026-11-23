@@ -2,7 +2,7 @@
 # Baut das Plugin zu einem fertigen Plugin-Ordner: übersetzt das Programm mit
 # `dart compile exe` unter dem Namen, den `programm` in plugin.json nennt, baut
 # das Einstellungsfenster (fenster/, Flutter, E8) und legt beides mit plugin.json
-# und skills/ in den Zielordner, unter Linux und macOS (Windows: Issue #17).
+# und skills/ in den Zielordner, unter Linux und macOS (Windows: bauen.ps1).
 #
 #   bash bauen.sh [Zielordner]
 #
@@ -20,7 +20,7 @@ ZIEL="${1:-$ORDNER/build/context}"
 DART="${DART:-dart}"
 FLUTTER="${FLUTTER:-flutter}"
 
-# Das Einstellungsfenster gibt es für Linux und macOS. Auf anderen Systemen wird
+# Das Einstellungsfenster gibt es für Linux und macOS (Windows: bauen.ps1). Auf anderen Systemen wird
 # das Plugin ohne Fenster gebaut, und das Skript sagt es. BAUEN_SYSTEM
 # überschreibt das System (nur zum Prüfen der Zweige).
 SYSTEM="${BAUEN_SYSTEM:-$(uname -s)}"

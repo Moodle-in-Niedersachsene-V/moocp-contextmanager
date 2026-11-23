@@ -1,6 +1,7 @@
 /build/
 /installer/*.exe
 /installer/*.pkg
+/installer/*.tar.gz
 .dart_tool/
 CLAUDE.local.md
 fenster/build/

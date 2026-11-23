@@ -1,0 +1,312 @@
+# Baut und prüft die Installer auf den Systemen, für die sie gedacht sind, und
+# hängt sie bei einem Release an dieses Release (ADR 0012, README, Entwicklerhandbuch).
+#
+# - release (veröffentlicht): baut die getaggte Revision auf Linux x64, Windows x64
+#   und macOS arm64 und lädt alle drei Installer samt Prüfsummen ans Release,
+#   aber nur, wenn alle drei Systeme bestanden haben und Tag und plugin.json
+#   dieselbe Version nennen.
+# - workflow_dispatch: baut eine gewählte Revision (Zweig, Tag oder Commit) und
+#   legt die Installer als Artefakte des Laufs ab, ohne etwas zu veröffentlichen.
+# - pull_request: baut und prüft, ohne etwas zu veröffentlichen. Schreibrechte
+#   gibt es dort nie; für Forks sind sie ohnehin gesperrt.
+#
+# Das Schreibrecht auf den Inhalt hat nur der Job „publish“, und der läuft nur bei
+# einem Release im Repository selbst.
+name: Installer bauen und veröffentlichen
+run-name: >-
+  ${{ github.event_name == 'release' && format('Release {0}', github.event.release.tag_name)
+  || github.event_name == 'workflow_dispatch' && format('Bau von {0}', inputs.ref)
+  || format('Prüfung {0}', github.ref_name) }}
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Zweig, Tag oder Commit, der gebaut wird
+        type: string
+        default: main
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installer-${{ github.event_name }}-${{ github.event.release.tag_name || github.event.pull_request.number || inputs.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Legt die Revision fest, die alle Systeme bauen: eine einzige SHA, die jeder
+  # Job auscheckt. Ein erneuter Lauf einzelner Jobs behält sie; ein Tag, der
+  # inzwischen woanders hinzeigt, fällt im Job „publish“ auf.
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      sha: ${{ steps.festlegen.outputs.sha }}
+      kurzname: ${{ steps.festlegen.outputs.kurzname }}
+      version: ${{ steps.festlegen.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: festlegen
+        env:
+          EREIGNIS: ${{ github.event_name }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          werte="$(python3 - <<'PY'
+          import json, re, sys
+          m = json.load(open('plugin.json', encoding='utf-8'))
+          kurz, ver = m['kurzname'], m['version']
+          if not re.fullmatch(r'[a-z][a-z0-9]{0,11}', kurz) or not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', ver):
+              sys.exit('plugin.json: kurzname oder version passt nicht')
+          for datei in ('pubspec.yaml', 'fenster/pubspec.yaml'):
+              m2 = re.search(r'^version:\s*(\S+)\s*$', open(datei, encoding='utf-8').read(), re.M)
+              if not m2 or m2.group(1) != ver:
+                  sys.exit(f'{datei} nennt nicht die Version {ver} aus plugin.json')
+          print(f'kurzname={kurz}; version={ver}')
+          PY
+          )"
+          # Erst in eine Variable: Ein Fehler des Skripts bricht hier ab (set -e),
+          # in eval "$(…)" bliebe er unbemerkt.
+          eval "$werte"
+          if [[ "$EREIGNIS" == release ]]; then
+            if [[ "$TAG" != "v$version" ]]; then
+              echo "Der Tag $TAG passt nicht zur Version $version in plugin.json (erwartet: v$version)." >&2
+              exit 1
+            fi
+            if [[ "$(git rev-parse "refs/tags/$TAG^{commit}")" != "$sha" ]]; then
+              echo "Der Tag $TAG zeigt nicht auf die gebaute Revision $sha." >&2
+              exit 1
+            fi
+          fi
+          {
+            echo "sha=$sha"
+            echo "kurzname=$kurzname"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+          echo "Revision $sha, Plugin $kurzname $version"
+
+  build:
+    needs: prepare
+    timeout-minutes: 60
+    strategy:
+      # Jedes System läuft zu Ende, damit ein Fehler auf einem die anderen
+      # nicht verdeckt; „publish“ verlangt alle drei.
+      fail-fast: false
+      matrix:
+        include:
+          - plattform: linux-x64
+            runner: ubuntu-24.04
+            datei: ${{ needs.prepare.outputs.kurzname }}_linux_x64_${{ needs.prepare.outputs.version }}.tar.gz
+          - plattform: windows-x64
+            runner: windows-2022
+            datei: ${{ needs.prepare.outputs.kurzname }}_setup_${{ needs.prepare.outputs.version }}.exe
+          - plattform: macos-arm64
+            runner: macos-26
+            datei: ${{ needs.prepare.outputs.kurzname }}_setup_${{ needs.prepare.outputs.version }}.pkg
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      DART_SUPPRESS_ANALYTICS: 'true'
+      FLUTTER_SUPPRESS_ANALYTICS: 'true'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+
+      - name: Native Pakete (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          # Bau: Flutter Linux und libsecret. Prüfung: virtuelle Anzeige für das
+          # Einstellungsfenster und ein Schlüsselbund ohne Sitzung.
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev \
+            libsecret-1-dev libjsoncpp-dev libsecret-tools gnome-keyring dbus-x11 \
+            xvfb xauth libegl1 libgles2 libgl1-mesa-dri
+
+      - name: NSIS (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+
+      # Flutter 3.50.0 bringt Dart 3.14 mit; beide Pakete verlangen Dart ^3.13.2
+      # und Flutter >=3.50.0 (pubspec.yaml, fenster/pubspec.yaml).
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: false
+
+      - name: Abhängigkeiten laut Sperrdatei
+        run: |
+          dart pub get --enforce-lockfile
+          (cd fenster && flutter pub get --enforce-lockfile)
+
+      - name: Analyse
+        run: |
+          dart analyze --fatal-infos
+          (cd fenster && flutter analyze)
+
+      - name: Tests (Linux, macOS)
+        if: runner.os != 'Windows'
+        run: |
+          dart test
+          (cd fenster && flutter test)
+
+      # Das Testgerüst des Plugins benutzt sh-Skripte als Ersatz für Systemwerkzeuge
+      # und läuft deshalb nicht unter Windows; hier laufen die Tests, die das System
+      # selbst ansprechen (Einstellungsort, Schlüsselbund) und die des Fensters.
+      - name: Tests (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          dart test test/einstellungen_pfad_test.dart
+          (cd fenster && flutter test)
+
+      - name: Schlüsselbund des Systems (macOS, Windows)
+        if: runner.os != 'Linux'
+        env:
+          KONTEXT_SCHLUESSELBUND: '1'
+        run: dart test test/schluesselbund_system_test.dart
+
+      - name: Schlüsselbund des Systems (Linux)
+        if: runner.os == 'Linux'
+        env:
+          KONTEXT_SCHLUESSELBUND: '1'
+        run: |
+          # Der Schlüsselbund braucht eine Sitzung und ein entsperrtes Schlüsselbund.
+          dbus-run-session -- bash -c '
+            echo -n "" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
+            dart test test/schluesselbund_system_test.dart
+          '
+
+      - name: Installer bauen (Linux)
+        if: runner.os == 'Linux'
+        run: bash installer_linux.sh
+
+      - name: Installer bauen (macOS)
+        if: runner.os == 'macOS'
+        run: bash installer_mac.sh
+
+      - name: Installer bauen (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: call create_installer.bat
+
+      - name: Name des Installers prüfen
+        env:
+          DATEI: ${{ matrix.datei }}
+        run: |
+          test -f "installer/$DATEI" || { echo "Der Installer installer/$DATEI fehlt. Gefunden:" >&2; ls installer >&2; exit 1; }
+
+      - name: Prüfprogramm übersetzen
+        run: dart compile exe tool/smoke.dart -o "build/smoke${{ runner.os == 'Windows' && '.exe' || '' }}"
+
+      - name: Installieren und prüfen (Nutzersicht, ohne Dart im Plugin)
+        env:
+          DATEI: ${{ matrix.datei }}
+        run: |
+          export SMOKE="$PWD/build/smoke${{ runner.os == 'Windows' && '.exe' || '' }}"
+          bash tool/smoke.sh "installer/$DATEI"
+
+      # Das Linux-Archiv läuft auf einem sauberen Debian 13, wie bei der
+      # Lehrkraft: nur die Laufzeitpakete aus der README, kein Dart, kein Flutter.
+      - name: Debian 13 ohne SDK (Linux)
+        if: runner.os == 'Linux'
+        env:
+          DATEI: ${{ matrix.datei }}
+        run: |
+          rm -rf build/debian && mkdir -p build/debian
+          tar -xzf "installer/$DATEI" -C build/debian
+          docker run --rm -v "$PWD/build:/build:ro" debian:13 bash -euxc '
+            apt-get update
+            apt-get install -y --no-install-recommends libgtk-3-0t64 libsecret-1-0 \
+              libsecret-tools libstdc++6 libegl1 libgles2 libgl1-mesa-dri xvfb xauth
+            cd /build/debian/*/plugin
+            find . -type f \( -name "*.so" -o -name "*.exe" -o -name kontext_einstellungen \) -exec ldd {} \; > /tmp/ldd.txt
+            ! grep -q "not found" /tmp/ldd.txt
+            test -z "$(command -v dart)$(command -v flutter)"
+            xvfb-run -a /build/smoke "$PWD"
+          '
+
+      - name: Prüfsumme
+        env:
+          DATEI: ${{ matrix.datei }}
+        run: |
+          mkdir -p dist
+          cp "installer/$DATEI" "dist/$DATEI"
+          cd dist
+          if command -v sha256sum >/dev/null; then sha256sum "$DATEI" > "$DATEI.sha256"; else shasum -a 256 "$DATEI" > "$DATEI.sha256"; fi
+          cat "$DATEI.sha256"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          # Die Revision steht im Namen: Ein Lauf mit anderer Revision kann nie
+          # als Teil dieses Releases gelten.
+          name: installer-${{ matrix.plattform }}-${{ needs.prepare.outputs.sha }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  # Nur bei einem Release im eigenen Repository, und nur mit allen drei Systemen.
+  publish:
+    needs: [prepare, build]
+    if: github.event_name == 'release' && github.repository == 'Moodle-in-Niedersachsene-V/moocp-contextmanager'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.event.release.tag_name }}
+      SHA: ${{ needs.prepare.outputs.sha }}
+      KURZNAME: ${{ needs.prepare.outputs.kurzname }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: installer-*-${{ needs.prepare.outputs.sha }}
+          merge-multiple: true
+          path: dist
+
+      - name: Alle Installer da, unverändert, und Tag unverändert
+        run: |
+          set -euo pipefail
+          erwartet=(
+            "${KURZNAME}_linux_x64_${VERSION}.tar.gz"
+            "${KURZNAME}_setup_${VERSION}.exe"
+            "${KURZNAME}_setup_${VERSION}.pkg"
+          )
+          for datei in "${erwartet[@]}"; do
+            for name in "$datei" "$datei.sha256"; do
+              test -f "dist/$name" || { echo "Es fehlt $name; nichts wird veröffentlicht." >&2; exit 1; }
+            done
+          done
+          test "$(ls dist | wc -l)" -eq 6 || { echo 'Unerwartete Dateien in dist:' >&2; ls dist >&2; exit 1; }
+          (cd dist && sha256sum -c ./*.sha256)
+          # Der Tag zeigt noch auf die Revision, aus der gebaut wurde.
+          aktuell="$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)"
+          test "$aktuell" = "$SHA" || { echo "Der Tag $TAG zeigt jetzt auf $aktuell, gebaut wurde $SHA." >&2; exit 1; }
+
+      - name: An das Release hängen
+        run: |
+          set -euo pipefail
+          # --clobber: Ein erneuter Lauf derselben Revision ersetzt seine eigenen Dateien.
+          gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+          # Gegenprobe: Jede Datei im Release hat die Prüfsumme der gebauten.
+          for datei in dist/*; do
+            lokal="sha256:$(sha256sum "$datei" | cut -d' ' -f1)"
+            im_release="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
+              --jq ".assets[] | select(.name == \"$(basename "$datei")\") | .digest")"
+            test "$lokal" = "$im_release" || { echo "$(basename "$datei"): Prüfsumme im Release weicht ab ($im_release)." >&2; exit 1; }
+          done

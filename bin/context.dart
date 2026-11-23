@@ -58,8 +58,11 @@ Future<void> main(List<String> argumente) async {
 
   // Vor dem Öffnen des Fensters: Ein Signal, das gleich danach kommt, darf das
   // Fenster nicht zurücklassen.
-  // Nur Linux und macOS: dort gibt es diese Signale.
-  ProcessSignal.sigterm.watch().listen((_) => enden());
+  // SIGTERM gibt es nur unter Linux und macOS; unter Windows wirft watch().
+  // Dort endet das Plugin über die Standardeingabe (unten) oder Strg+C.
+  if (!Platform.isWindows) {
+    ProcessSignal.sigterm.watch().listen((_) => enden());
+  }
   ProcessSignal.sigint.watch().listen((_) => enden());
 
   // Gibt es noch keine Einstellungen, öffnet die Lehrkraft das Fenster gleich (E8).
