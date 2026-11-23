@@ -160,8 +160,12 @@ jobs:
 
       - name: Tests (Linux, macOS)
         if: runner.os != 'Windows'
+        # Jeder Test startet das Plugin neu und ist auf einem ausgelasteten Runner
+        # zeitempfindlich (Verbindung vor dem ersten Antwortkopf geschlossen,
+        # Fenster noch nicht gestartet); ein Wiederholungsversuch fängt das ab,
+        # ein echter Fehler scheitert dreimal.
         run: |
-          dart test
+          dart test --retry 2
           (cd fenster && flutter test)
 
       # Das Testgerüst des Plugins benutzt sh-Skripte als Ersatz für Systemwerkzeuge
