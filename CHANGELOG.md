@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1
 
 - Neu: Das Plugin läuft unter Windows (x64), mit Einstellungsfenster. Ein Installer `context_setup_<Version>.exe` legt es ohne Administratorrechte in moocp ab; das Passwort eines WebDAV-Servers liegt in der Anmeldeinformationsverwaltung von Windows.
 - Neu: Für Linux (x64) gibt es ein Installationsarchiv `context_linux_x64_<Version>.tar.gz` mit einem Skript, das das Plugin ohne Administratorrechte in moocp ablegt, ersetzt und wieder entfernt, ohne Einstellungen und Passwort anzufassen.
