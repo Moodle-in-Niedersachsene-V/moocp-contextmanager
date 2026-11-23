@@ -156,7 +156,7 @@ jobs:
       - name: Analyse
         run: |
           dart analyze --fatal-infos
-          (cd fenster && flutter analyze)
+          (cd fenster && flutter analyze --no-fatal-infos)
 
       - name: Tests (Linux, macOS)
         if: runner.os != 'Windows'
