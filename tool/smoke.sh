@@ -95,7 +95,7 @@ case "$(uname -s)" in
     [[ ! -e "$ZIEL/alte-datei.txt" ]] || fehl 'Das Update hat den Plugin-Ordner nicht ganz ersetzt'
     ok 'Update ersetzt den Plugin-Ordner ganz'
     # Das Programm braucht nichts vom Bau: nur Systembibliotheken.
-    if otool -L "$ZIEL/context.exe" | grep -i -E 'flutter|hostedtoolcache|/Users/runner'; then
+    if otool -L "$ZIEL/context.exe" | tail -n +2 | grep -i -E 'flutter|hostedtoolcache|/Users/runner'; then
       fehl 'context.exe verweist auf Dateien des Baurechners'
     fi
     "$SMOKE" "$ZIEL"
