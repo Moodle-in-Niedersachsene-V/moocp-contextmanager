@@ -188,9 +188,10 @@ jobs:
         env:
           KONTEXT_SCHLUESSELBUND: '1'
         run: |
-          # Der Schlüsselbund braucht eine Sitzung und ein entsperrtes Schlüsselbund.
-          dbus-run-session -- bash -c '
-            echo -n "" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
+          # Der Schlüsselbund braucht eine Sitzung (dbus), eine Anzeige für seine
+          # Passwortabfrage (xvfb) und ein entsperrtes Schlüsselbund.
+          xvfb-run -a dbus-run-session -- bash -c '
+            printf "%s" "ci-passwort" | gnome-keyring-daemon --unlock --components=secrets >/dev/null
             dart test test/schluesselbund_system_test.dart
           '
 
