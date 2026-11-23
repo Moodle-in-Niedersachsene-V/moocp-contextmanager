@@ -140,7 +140,8 @@ case "$(uname -s)" in
     taskkill //F //IM kontext_einstellungen.exe >/dev/null 2>&1 || true
     sleep 3
     # Der Uninstaller kopiert sich in den Temp-Ordner und kehrt sofort zurück.
-    "$ZIEL/uninstall.exe" /S &
+    # Git Bash machte aus /S sonst einen Pfad (S:\) und der Uninstaller liefe mit Fenster.
+    MSYS2_ARG_CONV_EXCL="*" "$ZIEL/uninstall.exe" /S &
     for _ in $(seq 1 60); do
       [[ ! -e "$ZIEL" ]] && break
       sleep 1
