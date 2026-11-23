@@ -228,12 +228,13 @@ jobs:
       # Lehrkraft: nur die Laufzeitpakete aus der README, kein Dart, kein Flutter.
       - name: Debian 13 ohne SDK (Linux)
         if: runner.os == 'Linux'
+        timeout-minutes: 15
         env:
           DATEI: ${{ matrix.datei }}
         run: |
           rm -rf build/debian && mkdir -p build/debian
           tar -xzf "installer/$DATEI" -C build/debian
-          docker run --rm -v "$PWD/build:/build:ro" debian:13 bash -euxc '
+          timeout 600 docker run --rm -e DEBIAN_FRONTEND=noninteractive -v "$PWD/build:/build:ro" debian:13 bash -euxc '
             apt-get update
             apt-get install -y --no-install-recommends libgtk-3-0t64 libsecret-1-0 \
               libsecret-tools libstdc++6 libegl1 libgles2 libgl1-mesa-dri xvfb xauth
@@ -241,7 +242,7 @@ jobs:
             find . -type f \( -name "*.so" -o -name "*.exe" -o -name kontext_einstellungen \) -exec ldd {} \; > /tmp/ldd.txt
             ! grep -q "not found" /tmp/ldd.txt
             test -z "$(command -v dart)$(command -v flutter)"
-            xvfb-run -a /build/smoke "$PWD"
+            timeout 180 xvfb-run -a /build/smoke "$PWD"
           '
 
       - name: Prüfsumme
