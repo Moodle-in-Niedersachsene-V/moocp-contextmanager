@@ -135,13 +135,21 @@ case "$(uname -s)" in
 
     "$SMOKE" "$ZIEL_W"
 
+    # Die Prüfung ist zu Ende: Reste von ihr (Plugin, Fenster) sperren sonst die Dateien.
+    taskkill //F //IM context.exe >/dev/null 2>&1 || true
+    taskkill //F //IM kontext_einstellungen.exe >/dev/null 2>&1 || true
+    sleep 3
     # Der Uninstaller kopiert sich in den Temp-Ordner und kehrt sofort zurück.
     "$ZIEL/uninstall.exe" /S &
     for _ in $(seq 1 60); do
       [[ ! -e "$ZIEL" ]] && break
       sleep 1
     done
-    [[ ! -e "$ZIEL" ]] || fehl 'Die Deinstallation hat den Plugin-Ordner nicht entfernt'
+    if [[ -e "$ZIEL" ]]; then
+      ls -la "$ZIEL" >&2 || true
+      tasklist >&2 || true
+      fehl 'Die Deinstallation hat den Plugin-Ordner nicht entfernt'
+    fi
     if reg query 'HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\moocp-plugin-context' >/dev/null 2>&1; then
       fehl 'Die Deinstallation hat den Eintrag unter „Installierte Apps“ nicht entfernt'
     fi
