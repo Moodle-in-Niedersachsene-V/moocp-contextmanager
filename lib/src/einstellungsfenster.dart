@@ -40,7 +40,11 @@ class Einstellungsfenster {
       );
     }
     return Einstellungsfenster(
-      programm: p.join(pluginOrdner, 'einstellungsfenster', 'kontext_einstellungen'),
+      programm: p.join(
+        pluginOrdner,
+        'einstellungsfenster',
+        Platform.isWindows ? 'kontext_einstellungen.exe' : 'kontext_einstellungen',
+      ),
       einstellungen: einstellungen,
     );
   }
@@ -160,9 +164,16 @@ class Einstellungsfenster {
   /// Ob [zeile] die Kommandozeile unseres Fensters ist: das Programm als
   /// ganzes Wort am Anfang und sein Argument `--einstellungen`. Die Pid kann
   /// inzwischen einem fremden Prozess gehören, der den Pfad nur erwähnt.
-  bool _istFenster(String zeile) =>
-      (zeile == programm || zeile.startsWith('$programm ')) &&
-      zeile.contains('--einstellungen');
+  bool _istFenster(String zeile) {
+    var z = zeile;
+    if (Platform.isWindows) {
+      // Windows nennt das Programm mit Anführungszeichen, und Pfade
+      // unterscheiden dort nicht zwischen Groß- und Kleinschreibung.
+      z = z.toLowerCase().replaceFirst('"', '').replaceFirst('"', '');
+    }
+    final soll = Platform.isWindows ? programm.toLowerCase() : programm;
+    return (z == soll || z.startsWith('$soll ')) && z.contains('--einstellungen');
+  }
 
   Future<bool> _lebt(int pid) async => await _befehlszeile(pid) != null;
 
@@ -323,10 +334,28 @@ Future<Process> _echtStarten(String programm, List<String> argumente) {
   );
 }
 
-/// Die Kommandozeile unter [pid] über `ps` (Linux und macOS). `ps -p` endet mit
-/// 1 und ohne Ausgabe, wenn es den Prozess nicht gibt; jeder andere Ausfall ist
-/// ein [BefehlszeilenFehler].
+/// Die Kommandozeile unter [pid] über `ps` (Linux und macOS) bzw. PowerShell
+/// (Windows). `ps -p` endet mit 1 und ohne Ausgabe, wenn es den Prozess nicht
+/// gibt; jeder andere Ausfall ist ein [BefehlszeilenFehler].
 Future<String?> _echteBefehlszeile(int pid) async {
+  if (Platform.isWindows) {
+    // Die Pid ist eine Zahl; sie steht allein im Befehl. Ohne den Prozess gibt
+    // Get-CimInstance nichts aus und endet mit 0.
+    final ProcessResult w;
+    try {
+      w = await Process.run('powershell', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        "(Get-CimInstance Win32_Process -Filter 'ProcessId=$pid').CommandLine",
+      ]);
+    } on ProcessException {
+      throw const BefehlszeilenFehler();
+    }
+    if (w.exitCode != 0) throw const BefehlszeilenFehler();
+    final text = (w.stdout as String).trim();
+    return text.isEmpty ? null : text;
+  }
   final ProcessResult r;
   try {
     r = await Process.run('ps', ['-p', '$pid', '-o', 'args=']);
